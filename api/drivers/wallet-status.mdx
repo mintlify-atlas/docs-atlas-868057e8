@@ -1,0 +1,246 @@
+---
+title: Wallet Status
+description: Block and unblock driver wallets for financial control
+---
+
+## Block Driver Wallet
+
+<api method="POST" endpoint="/wallets-status/{driverId}/block" auth="public">
+  Blocks a driver's wallet to prevent payouts and other withdrawals. This is idempotent - calling it multiple times on an already blocked wallet will not cause an error.
+</api>
+
+### Path Parameters
+
+<ParamField path="driverId" type="string" required>
+  UUID of the driver whose wallet should be blocked
+</ParamField>
+
+### Body Parameters
+
+<ParamField body="reason" type="string">
+  Reason for blocking the wallet (max 250 characters). Used for audit and traceability.
+</ParamField>
+
+<ParamField body="comment" type="string">
+  Additional comment or context (max 500 characters)
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the operation was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message indicating whether the wallet was blocked or was already blocked
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Wallet status change details
+  <Expandable title="properties">
+    <ResponseField name="driverId" type="string">
+      UUID of the driver
+    </ResponseField>
+    <ResponseField name="previousStatus" type="string">
+      Previous wallet status (`active` or `blocked`)
+    </ResponseField>
+    <ResponseField name="status" type="string">
+      Current wallet status (`blocked`)
+    </ResponseField>
+    <ResponseField name="changed" type="boolean">
+      Whether the status actually changed. False if wallet was already blocked.
+    </ResponseField>
+    <ResponseField name="changedAt" type="string">
+      ISO 8601 timestamp of when the change occurred
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X POST https://api.rodando.com/wallets-status/3a0c239d-7a63-43b2-a9b3-25b0f3a7a2cd/block \
+  -H "Content-Type: application/json" \
+  -d '{
+    "reason": "Sospecha de fraude en transacción",
+    "comment": "Bloqueo preventivo hasta resolver disputa #D-1234"
+  }'
+```
+
+### Example Response
+
+```json
+{
+  "success": true,
+  "message": "Wallet bloqueado.",
+  "data": {
+    "driverId": "3a0c239d-7a63-43b2-a9b3-25b0f3a7a2cd",
+    "previousStatus": "active",
+    "status": "blocked",
+    "changed": true,
+    "changedAt": "2025-09-14T10:00:00.000Z"
+  }
+}
+```
+
+### Wallet Blocked Behavior
+
+When a wallet is in `blocked` status:
+
+- **Prevented Operations:**
+  - Payouts to the driver
+  - Withdrawals and other egress transactions
+  
+- **Allowed Operations:**
+  - Top-ups (deposits)
+  - Regularization adjustments by admin
+
+### Error Responses
+
+- **404 Not Found**: Driver wallet does not exist
+- **400 Bad Request**: Invalid request parameters
+
+<Warning>
+  This is a critical financial control operation. Ensure proper authorization checks are in place before allowing wallet blocking. Consider implementing admin-only access control for production use.
+</Warning>
+
+---
+
+## Unblock Driver Wallet
+
+<api method="POST" endpoint="/wallets-status/{driverId}/unblock" auth="public">
+  Unblocks a driver's wallet, restoring it to active status. This is idempotent - calling it on an already active wallet will not cause an error.
+</api>
+
+### Path Parameters
+
+<ParamField path="driverId" type="string" required>
+  UUID of the driver whose wallet should be unblocked
+</ParamField>
+
+### Body Parameters
+
+<ParamField body="reason" type="string">
+  Reason for unblocking the wallet (max 250 characters)
+</ParamField>
+
+<ParamField body="comment" type="string">
+  Additional comment or context (max 500 characters)
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the operation was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message indicating whether the wallet was unblocked or was already active
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Wallet status change details
+  <Expandable title="properties">
+    <ResponseField name="driverId" type="string">
+      UUID of the driver
+    </ResponseField>
+    <ResponseField name="previousStatus" type="string">
+      Previous wallet status (`active` or `blocked`)
+    </ResponseField>
+    <ResponseField name="status" type="string">
+      Current wallet status (`active`)
+    </ResponseField>
+    <ResponseField name="changed" type="boolean">
+      Whether the status actually changed. False if wallet was already active.
+    </ResponseField>
+    <ResponseField name="changedAt" type="string">
+      ISO 8601 timestamp of when the change occurred
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X POST https://api.rodando.com/wallets-status/3a0c239d-7a63-43b2-a9b3-25b0f3a7a2cd/unblock \
+  -H "Content-Type: application/json" \
+  -d '{
+    "reason": "Disputa resuelta",
+    "comment": "Se validó identidad del conductor y se cerró el ticket"
+  }'
+```
+
+### Example Response
+
+```json
+{
+  "success": true,
+  "message": "Wallet desbloqueado.",
+  "data": {
+    "driverId": "3a0c239d-7a63-43b2-a9b3-25b0f3a7a2cd",
+    "previousStatus": "blocked",
+    "status": "active",
+    "changed": true,
+    "changedAt": "2025-09-14T11:30:00.000Z"
+  }
+}
+```
+
+### Error Responses
+
+- **404 Not Found**: Driver wallet does not exist
+- **400 Bad Request**: Invalid request parameters
+
+<Note>
+  Both block and unblock operations are idempotent. The `changed` field in the response indicates whether the operation actually changed the wallet status or if it was already in the target state.
+</Note>
+
+---
+
+## Use Cases
+
+### Fraud Prevention
+
+When suspicious activity is detected, block the wallet immediately to prevent unauthorized withdrawals:
+
+```bash
+curl -X POST https://api.rodando.com/wallets-status/{driverId}/block \
+  -H "Content-Type: application/json" \
+  -d '{
+    "reason": "Patrón de actividad sospechosa detectado",
+    "comment": "Multiple payouts requested in short timeframe. Investigation ticket #SEC-5678"
+  }'
+```
+
+### Dispute Resolution
+
+After resolving a dispute and verifying the driver's identity, unblock the wallet:
+
+```bash
+curl -X POST https://api.rodando.com/wallets-status/{driverId}/unblock \
+  -H "Content-Type: application/json" \
+  -d '{
+    "reason": "Disputa cerrada - identidad verificada",
+    "comment": "Ticket #SUP-1234 resolved. Driver provided valid documentation."
+  }'
+```
+
+### Regulatory Compliance
+
+Block wallets for drivers who haven't completed required compliance checks:
+
+```bash
+curl -X POST https://api.rodando.com/wallets-status/{driverId}/block \
+  -H "Content-Type: application/json" \
+  -d '{
+    "reason": "Documentación vencida",
+    "comment": "Licencia de conducir expirada. Requiere actualización antes de desbloqueo."
+  }'
+```
+
+---
+
+## See Also
+
+- [Driver Balance](/api/drivers/driver-balance) - View and manage driver wallet balance
+- [Driver Profiles](/api/drivers/driver-profiles) - Manage driver profile information

@@ -214,3 +214,58 @@ Returns the updated zone with new active status.
 ### Response
 
 Returns the best matching zone containing the point (based on priority), or null if no zone is found.
+
+### Example Request
+
+```bash
+curl "https://api.rodando.com/zones/resolve/by-point?cityId=a1b2c3d4-5678-90ab-cdef-1234567890ab&lat=19.4326&lng=-99.1332"
+```
+
+### Example Response
+
+```json
+{
+  "success": true,
+  "message": "Zone resolved",
+  "data": {
+    "id": "b2c3d4e5-6789-01ab-cdef-234567890abc",
+    "cityId": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+    "name": "Zona Centro",
+    "kind": "downtown",
+    "priority": 100,
+    "active": true,
+    "createdAt": "2024-01-15T10:30:00Z",
+    "updatedAt": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+If no zone contains the point:
+
+```json
+{
+  "success": true,
+  "message": "No zone found",
+  "data": null
+}
+```
+
+### Priority-Based Resolution
+
+When multiple zones overlap at the same point, the zone with the **highest priority** value is returned. This allows you to:
+
+- Define general zones with lower priority (e.g., "North District" with priority 50)
+- Override with specific high-priority zones (e.g., "Airport Zone" with priority 200)
+
+### Use Cases
+
+This endpoint is essential for:
+
+- **Dynamic pricing** - Apply zone-specific pricing policies
+- **Surge pricing** - Identify high-demand zones
+- **Service restrictions** - Enforce zone-specific service rules
+- **Trip routing** - Determine pickup and dropoff zone information
+
+<Note>
+  This endpoint uses PostGIS spatial queries and returns the zone with the highest priority value among all zones that contain the point. Only active zones are considered.
+</Note>

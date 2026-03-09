@@ -198,3 +198,49 @@ Returns the updated city with new active status.
 ### Response
 
 Returns the city containing the point, or null if no city is found.
+
+### Example Request
+
+```bash
+curl "https://api.rodando.com/cities/resolve/by-point?lat=19.4326&lng=-99.1332"
+```
+
+### Example Response
+
+```json
+{
+  "success": true,
+  "message": "City resolved",
+  "data": {
+    "id": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+    "name": "Ciudad de México",
+    "countryCode": "MX",
+    "timezone": "America/Mexico_City",
+    "active": true,
+    "createdAt": "2024-01-15T10:30:00Z",
+    "updatedAt": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+If no city contains the point:
+
+```json
+{
+  "success": true,
+  "message": "No city found",
+  "data": null
+}
+```
+
+### Use Cases
+
+This endpoint is essential for:
+
+- **Trip pricing** - Determine which city's pricing policies apply to a trip
+- **Service availability** - Check if Rodando operates in the requested location
+- **Zone resolution** - First step before resolving specific zones within a city
+
+<Note>
+  This endpoint uses PostGIS spatial queries to find the city whose geometry contains the provided point. Only active cities with defined geometries are considered.
+</Note>

@@ -82,7 +82,8 @@
             "pages": [
               "api/drivers/driver-profiles",
               "api/drivers/driver-availability",
-              "api/drivers/driver-balance"
+              "api/drivers/driver-balance",
+              "api/drivers/wallet-status"
             ]
           },
           {

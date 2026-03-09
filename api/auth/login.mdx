@@ -122,45 +122,9 @@ This endpoint is public and does not require authentication.
   Refresh token expiration timestamp in milliseconds since epoch (typically 7 days).
 </ResponseField>
 
-<ResponseField name="sid" type="string">
-  Session ID (JWT identifier)
-</ResponseField>
-
-<ResponseField name="userType" type="string">
-  Type of the authenticated user (DRIVER, PASSENGER, or ADMIN)
-</ResponseField>
-
-<ResponseField name="user" type="object">
-  Authenticated user information.
-  
-  <ResponseField name="user.id" type="string">
-    User ID
-  </ResponseField>
-  
-  <ResponseField name="user.name" type="string">
-    User's full name
-  </ResponseField>
-  
-  <ResponseField name="user.email" type="string">
-    User's email address
-  </ResponseField>
-  
-  <ResponseField name="user.phoneNumber" type="string">
-    User's phone number
-  </ResponseField>
-  
-  <ResponseField name="user.userType" type="string">
-    User type
-  </ResponseField>
-  
-  <ResponseField name="user.profilePictureUrl" type="string">
-    URL to user's profile picture
-  </ResponseField>
-  
-  <ResponseField name="user.preferredLanguage" type="string">
-    User's preferred language code
-  </ResponseField>
-</ResponseField>
+<Note>
+  The session ID (`sid`) and user information are embedded in the JWT access token payload, not returned as separate response fields. Decode the access token to access these values.
+</Note>
 
 ## Error Responses
 
@@ -245,20 +209,23 @@ curl -X POST https://api.rodando.com/auth/login \
   "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "sessionType": "mobile_app",
   "accessTokenExpiresAt": 1709999999999,
-  "refreshTokenExpiresAt": 1710604799999,
-  "sid": "550e8400-e29b-41d4-a716-446655440000",
-  "userType": "DRIVER",
-  "user": {
-    "id": "user-123",
-    "name": "John Doe",
-    "email": "john@example.com",
-    "phoneNumber": "+1234567890",
-    "userType": "DRIVER",
-    "profilePictureUrl": "https://cdn.rodando.com/profiles/user-123.jpg",
-    "preferredLanguage": "en"
-  }
+  "refreshTokenExpiresAt": 1710604799999
 }
 ```
+
+<Note>
+  User information, session ID (`sid`), and user type are embedded in the JWT access token payload. Decode the token to access these fields:
+  ```json
+  {
+    "sub": "user-123",
+    "sid": "550e8400-e29b-41d4-a716-446655440000",
+    "aud": "driver_app",
+    "role": "DRIVER",
+    "iat": 1709999999,
+    "exp": 1710000999
+  }
+  ```
+</Note>
 
 ## Notes
 

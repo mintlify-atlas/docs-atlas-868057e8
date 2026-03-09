@@ -259,6 +259,254 @@ Each state transition triggers domain events that can be used for:
 - `AssignmentExpiredEvent` - Offer timeout
 - `NoDriversFoundEvent` - No drivers available (`no_drivers_found`)
 
+## Get Active Trip for Passenger
+
+<api method="GET" endpoint="/trips/passengers/{id}/active-trip" auth="default">
+  Retrieves the active trip for a specific passenger
+</api>
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Passenger user UUID
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the operation was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  The active trip object, or null if the passenger has no active trip
+</ResponseField>
+
+### Example Request
+
+```bash
+curl https://api.rodando.com/trips/passengers/passenger-uuid-123/active-trip
+```
+
+---
+
+## Get Active Trip for Driver
+
+<api method="GET" endpoint="/trips/drivers/{id}/active-trip" auth="default">
+  Retrieves the active trip for a specific driver
+</api>
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Driver UUID
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the operation was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  The active trip object, or null if the driver has no active trip
+</ResponseField>
+
+### Example Request
+
+```bash
+curl https://api.rodando.com/trips/drivers/driver-uuid-456/active-trip
+```
+
+---
+
+## Accept Trip Assignment (Driver)
+
+<api method="PATCH" endpoint="/trips/assignments/{id}/accept" auth="jwt">
+  Driver accepts a trip assignment offer. Requires JWT authentication.
+</api>
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Assignment UUID (not trip UUID)
+</ParamField>
+
+### Headers
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for driver authentication. The driver ID is extracted from the JWT.
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the operation was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Updated trip object in `accepted` status with driver assigned
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X PATCH https://api.rodando.com/trips/assignments/assignment-uuid-789/accept \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
+### Error Responses
+
+- **401 Unauthorized**: Invalid or missing JWT token
+- **409 Conflict**: Assignment not active or already responded to
+
+---
+
+## Reject Trip Assignment
+
+<api method="POST" endpoint="/trips/{id}/reject" auth="default">
+  Driver rejects a trip assignment offer. Matching continues with other drivers.
+</api>
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Trip UUID
+</ParamField>
+
+### Body Parameters
+
+<ParamField body="driverId" type="string" required>
+  UUID of the driver rejecting the assignment
+</ParamField>
+
+<ParamField body="reason" type="string">
+  Reason for rejection (e.g., `too_far`, `unavailable`, `other`)
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the operation was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Trip object (still in `assigning` status)
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X POST https://api.rodando.com/trips/trip-uuid-123/reject \
+  -H "Content-Type: application/json" \
+  -d '{
+    "driverId": "driver-uuid-789",
+    "reason": "too_far"
+  }'
+```
+
+### Error Responses
+
+- **409 Conflict**: Assignment not active or already responded to
+- **400 Bad Request**: Validation error
+
+---
+
+## Expire Trip Assignment
+
+<api method="POST" endpoint="/trips/{id}/expire" auth="default">
+  Marks a trip assignment as expired (timeout). Typically called automatically by the matching system when a driver doesn't respond within the timeout period.
+</api>
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Trip UUID
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the operation was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Trip object. If more drivers are available, continues in `assigning` status. Otherwise may transition to `no_drivers_found`.
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X POST https://api.rodando.com/trips/trip-uuid-123/expire
+```
+
+### Error Responses
+
+- **409 Conflict**: Assignment not active or already responded to
+
+---
+
+## Mark Trip as No Drivers Found
+
+<api method="POST" endpoint="/trips/{id}/assign/no-drivers" auth="default">
+  Marks a trip as having no available drivers. This is a terminal state - the trip cannot proceed.
+</api>
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Trip UUID
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the operation was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Trip object in `no_drivers_found` status
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X POST https://api.rodando.com/trips/trip-uuid-123/assign/no-drivers
+```
+
+### Use Case
+
+This endpoint is typically called automatically by the matching system when:
+
+- All eligible drivers have rejected the trip
+- All assignment offers have timed out
+- No drivers are available within the search radius
+
+---
+
 ## Viewing Trip Events
 
 You can retrieve the complete audit trail of all events for a trip:
