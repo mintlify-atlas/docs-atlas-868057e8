@@ -1,0 +1,157 @@
+{
+  "projectType": "api-service",
+  "projectName": "Rodando Backend",
+  "projectDescription": "NestJS-based ride-sharing platform backend with real-time driver matching, trip management, and payment processing",
+  "theme": "aspen",
+  "primaryColor": "#de2850",
+  "lightColor": "#e08cac",
+  "darkColor": null,
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "architecture"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/authentication",
+              "concepts/trip-lifecycle",
+              "concepts/driver-matching",
+              "concepts/real-time-communication"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/setup",
+              "guides/configuration",
+              "guides/database-setup",
+              "guides/websockets"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Authentication",
+            "pages": [
+              "api/auth/login",
+              "api/auth/refresh",
+              "api/auth/logout"
+            ]
+          },
+          {
+            "group": "Trip Management",
+            "pages": [
+              "api/trips/create-trip",
+              "api/trips/estimate-trip",
+              "api/trips/get-trip",
+              "api/trips/list-trips",
+              "api/trips/trip-lifecycle"
+            ]
+          },
+          {
+            "group": "Driver Management",
+            "pages": [
+              "api/drivers/driver-profiles",
+              "api/drivers/driver-availability",
+              "api/drivers/driver-balance"
+            ]
+          },
+          {
+            "group": "User Management",
+            "pages": [
+              "api/users/overview"
+            ]
+          },
+          {
+            "group": "Vehicles",
+            "pages": [
+              "api/vehicles/vehicle-management",
+              "api/vehicles/vehicle-types",
+              "api/vehicles/vehicle-categories",
+              "api/vehicles/service-classes"
+            ]
+          },
+          {
+            "group": "Orders & Payments",
+            "pages": [
+              "api/orders/orders",
+              "api/orders/transactions",
+              "api/orders/cash-collections",
+              "api/orders/prepaid-plans"
+            ]
+          },
+          {
+            "group": "Settings",
+            "pages": [
+              "api/settings/cities",
+              "api/settings/zones",
+              "api/settings/price-policies"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "WebSocket Events",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "websockets/overview",
+              "websockets/connection"
+            ]
+          },
+          {
+            "group": "Gateways",
+            "pages": [
+              "websockets/driver-auth",
+              "websockets/driver-availability",
+              "websockets/passenger",
+              "websockets/admin"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "JWT-based authentication with refresh tokens and session management",
+    "Real-time trip matching and driver assignment via WebSockets",
+    "Complete trip lifecycle management from request to completion",
+    "Driver availability tracking with geohash-based location indexing",
+    "Multi-tier vehicle classification and dynamic pricing",
+    "Wallet and payment transaction management",
+    "Swagger API documentation with multiple doc sets",
+    "Rate limiting and request throttling",
+    "Idempotency key support for safe retries"
+  ],
+  "publicApiSurface": [
+    "POST /api/auth/login - Authenticate and create session",
+    "POST /api/auth/refresh - Refresh access token",
+    "POST /api/auth/logout - Revoke session",
+    "POST /api/trips - Create new trip request",
+    "POST /api/trips/estimate - Get trip fare estimate",
+    "GET /api/trips/:id - Get trip details",
+    "GET /api/trips - List trips with pagination",
+    "POST /api/trips/:id/assign/start - Start driver assignment",
+    "PATCH /api/trips/assignments/:id/accept - Accept trip assignment",
+    "POST /api/trips/:id/arriving - Driver arriving to pickup",
+    "POST /api/trips/:id/start - Start trip in progress",
+    "POST /api/trips/:id/complete - Complete trip",
+    "WebSocket /driver-auth - Driver authentication gateway",
+    "WebSocket /driver-availability - Driver location and status updates",
+    "WebSocket /passenger - Passenger trip updates",
+    "WebSocket /admin - Admin monitoring gateway"
+  ]
+}
