@@ -1,97 +1,179 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Rodando Backend API"
+description: "Enterprise-grade ride-sharing platform backend built with NestJS"
 ---
 
-## Setting up
+<div style={{
+  background: "linear-gradient(135deg, #de2850 0%, #e08cac 100%)",
+  padding: "4rem 2rem",
+  borderRadius: "8px",
+  marginBottom: "3rem",
+  color: "white"
+}}>
+  <h1 style={{
+    fontSize: "48px",
+    fontWeight: "700",
+    marginBottom: "1rem",
+    color: "white"
+  }}>
+    Rodando Backend API
+  </h1>
+  <p style={{
+    fontSize: "20px",
+    marginBottom: "2rem",
+    color: "white",
+    opacity: 0.95
+  }}>
+    Build powerful ride-sharing applications with real-time driver matching, trip management, and seamless payment processing.
+  </p>
+  <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+    <a href="/quickstart" style={{
+      background: "#ffffff",
+      color: "#de2850",
+      padding: "12px 24px",
+      borderRadius: "24px",
+      textDecoration: "none",
+      fontWeight: "600",
+      display: "inline-block"
+    }}>
+      Get Started
+    </a>
+    <a href="/api/auth/login" style={{
+      background: "transparent",
+      color: "#ffffff",
+      padding: "12px 24px",
+      borderRadius: "24px",
+      textDecoration: "none",
+      fontWeight: "600",
+      border: "2px solid white",
+      display: "inline-block"
+    }}>
+      API Reference
+    </a>
+  </div>
+</div>
 
-Get your documentation site up and running in minutes.
+## Key Features
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="JWT Authentication" icon="shield-halved" href="/concepts/authentication">
+    Secure authentication with refresh tokens, session management, and multi-device support
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Real-Time Matching" icon="bolt" href="/concepts/driver-matching">
+    Geohash-based driver discovery with intelligent matching algorithms
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Trip Lifecycle" icon="route" href="/concepts/trip-lifecycle">
+    Complete trip management from request through completion with state machine validation
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="WebSocket Events" icon="tower-broadcast" href="/websockets/overview">
+    Real-time updates for drivers, passengers, and admin dashboards
   </Card>
-</Columns>
+  <Card title="Dynamic Pricing" icon="dollar-sign" href="/api/settings/price-policies">
+    Multi-tier vehicle classification with flexible pricing policies per zone
+  </Card>
+  <Card title="Payment Processing" icon="credit-card" href="/api/orders/transactions">
+    Wallet management, transaction tracking, and cash collection points
+  </Card>
+</CardGroup>
 
-## Create beautiful pages
+## Quick Links
 
-Everything you need to create world-class documentation.
+<CardGroup cols={3}>
+  <Card title="Setup Guide" icon="rocket" href="/guides/setup">
+    Install dependencies and configure your development environment
+  </Card>
+  <Card title="Architecture" icon="sitemap" href="/architecture">
+    Understand the system design and core components
+  </Card>
+  <Card title="Database Setup" icon="database" href="/guides/database-setup">
+    Configure PostgreSQL and run migrations
+  </Card>
+  <Card title="Authentication API" icon="key" href="/api/auth/login">
+    Implement user authentication and session management
+  </Card>
+  <Card title="Trip Management" icon="car" href="/api/trips/create-trip">
+    Create and manage ride requests
+  </Card>
+  <Card title="WebSocket Guide" icon="plug" href="/guides/websockets">
+    Connect clients to real-time event streams
+  </Card>
+</CardGroup>
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+## Core Capabilities
 
-## Need inspiration?
+### For Passengers
+- Request rides with fare estimates
+- Real-time driver tracking
+- Trip history and receipts
+- Multiple payment methods
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+### For Drivers
+- Real-time trip offers
+- Location-based assignment
+- Earnings and wallet management
+- Availability controls
+
+### For Platform Operators
+- Multi-city support with zone-based pricing
+- Vehicle type and service class management
+- Driver onboarding and profile management
+- Transaction monitoring and reporting
+
+## API Overview
+
+The Rodando Backend API provides RESTful endpoints for all platform operations plus WebSocket gateways for real-time communication:
+
+<Tabs>
+  <Tab title="Authentication">
+    ```http
+    POST   /api/auth/login     # Authenticate user
+    POST   /api/auth/refresh   # Refresh access token
+    POST   /api/auth/logout    # Revoke session
+    ```
+  </Tab>
+  <Tab title="Trips">
+    ```http
+    POST   /api/trips                 # Create trip request
+    POST   /api/trips/estimate        # Get fare estimate
+    GET    /api/trips/:id             # Get trip details
+    POST   /api/trips/:id/complete    # Complete trip
+    ```
+  </Tab>
+  <Tab title="WebSockets">
+    ```
+    ws://api/driver-auth           # Driver authentication
+    ws://api/driver-availability   # Driver location updates
+    ws://api/passenger             # Passenger trip updates
+    ws://api/admin                 # Admin monitoring
+    ```
+  </Tab>
+</Tabs>
+
+## Technology Stack
+
+Built with modern, production-ready technologies:
+
+- **Framework**: NestJS with TypeScript
+- **Database**: PostgreSQL with TypeORM
+- **Real-time**: Socket.io for WebSocket communication
+- **Authentication**: JWT with passport-jwt strategy
+- **API Docs**: Swagger/OpenAPI integration
+- **Geolocation**: Geohash-based spatial indexing
+
+<Note>
+  All API endpoints are prefixed with `/api` and support both web and mobile clients with appropriate session handling.
+</Note>
+
+## Next Steps
+
+<Steps>
+  <Step title="Quick Start">
+    Follow the [quickstart guide](/quickstart) to get a local instance running in minutes
+  </Step>
+  <Step title="Explore Concepts">
+    Learn about [authentication](/concepts/authentication), [trip lifecycle](/concepts/trip-lifecycle), and [driver matching](/concepts/driver-matching)
+  </Step>
+  <Step title="Build with the API">
+    Browse the [API Reference](/api/auth/login) and integrate with your application
+  </Step>
+</Steps>

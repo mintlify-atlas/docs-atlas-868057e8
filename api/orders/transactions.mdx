@@ -1,0 +1,335 @@
+---
+title: 'Transactions'
+description: 'Manage financial transactions and wallet operations'
+---
+
+## Overview
+
+Transactions track all financial movements in the platform, including charges, credits, refunds, and withdrawals. They represent the atomic units of financial operations between users, orders, and trips.
+
+## List Transactions
+
+Retrieve a paginated list of transactions with optional filtering.
+
+<ParamField query="page" type="number" default="1">
+  Page number for pagination
+</ParamField>
+
+<ParamField query="limit" type="number" default="10">
+  Number of items per page
+</ParamField>
+
+<ParamField query="type" type="string">
+  Filter by transaction type (CHARGE, CREDIT, REFUND, WITHDRAWAL, TRANSFER)
+</ParamField>
+
+<ParamField query="status" type="string">
+  Filter by transaction status (PENDING, PROCESSED, FAILED, CANCELLED)
+</ParamField>
+
+<ParamField query="fromUserId" type="string">
+  Filter by source user UUID (debtor)
+</ParamField>
+
+<ParamField query="toUserId" type="string">
+  Filter by destination user UUID (creditor)
+</ParamField>
+
+<ParamField query="startDate" type="string">
+  Start date for date range filter (ISO format)
+</ParamField>
+
+<ParamField query="endDate" type="string">
+  End date for date range filter (ISO format)
+</ParamField>
+
+<ParamField query="minAmount" type="number">
+  Minimum gross amount
+</ParamField>
+
+<ParamField query="maxAmount" type="number">
+  Maximum gross amount
+</ParamField>
+
+<ParamField query="search" type="string">
+  Search by transaction ID or user email/name
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X GET "https://api.rodando.com/transactions?page=1&limit=10&type=CHARGE&status=PROCESSED" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+</RequestExample>
+
+<ResponseExample>
+```json Response
+{
+  "success": true,
+  "data": [
+    {
+      "id": "aa0e8400-e29b-41d4-a716-446655440000",
+      "type": "CHARGE",
+      "grossAmount": 100.00,
+      "platformFeeAmount": 20.00,
+      "netAmount": 80.00,
+      "currency": "CUP",
+      "status": "PROCESSED",
+      "orderId": "550e8400-e29b-41d4-a716-446655440000",
+      "tripId": "660e8400-e29b-41d4-a716-446655440000",
+      "fromUserId": "770e8400-e29b-41d4-a716-446655440000",
+      "toUserId": "880e8400-e29b-41d4-a716-446655440000",
+      "description": "Charge for trip #1234",
+      "processedAt": "2026-03-09T10:30:00.000Z",
+      "createdAt": "2026-03-09T10:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 250
+  }
+}
+```
+</ResponseExample>
+
+---
+
+## Get Transaction Details
+
+Retrieve detailed information about a specific transaction.
+
+<ParamField path="id" type="string" required>
+  Transaction UUID
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X GET "https://api.rodando.com/transactions/aa0e8400-e29b-41d4-a716-446655440000" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+</RequestExample>
+
+<ResponseExample>
+```json Response
+{
+  "success": true,
+  "data": {
+    "id": "aa0e8400-e29b-41d4-a716-446655440000",
+    "type": "CHARGE",
+    "grossAmount": 100.00,
+    "platformFeeAmount": 20.00,
+    "netAmount": 80.00,
+    "currency": "CUP",
+    "status": "PROCESSED",
+    "orderId": "550e8400-e29b-41d4-a716-446655440000",
+    "tripId": "660e8400-e29b-41d4-a716-446655440000",
+    "fromUserId": "770e8400-e29b-41d4-a716-446655440000",
+    "toUserId": "880e8400-e29b-41d4-a716-446655440000",
+    "description": "Charge for trip #1234",
+    "processedAt": "2026-03-09T10:30:00.000Z",
+    "metadata": {
+      "gateway": "stripe",
+      "intentId": "pi_123456"
+    },
+    "createdAt": "2026-03-09T10:00:00.000Z",
+    "updatedAt": "2026-03-09T10:30:00.000Z"
+  }
+}
+```
+</ResponseExample>
+
+---
+
+## Create Transaction
+
+Create a new financial transaction.
+
+<ParamField body="type" type="string" required>
+  Transaction type: CHARGE, CREDIT, REFUND, WITHDRAWAL, or TRANSFER
+</ParamField>
+
+<ParamField body="grossAmount" type="number" required>
+  Gross amount before fees (decimal)
+</ParamField>
+
+<ParamField body="netAmount" type="number" required>
+  Net amount after fees (decimal)
+</ParamField>
+
+<ParamField body="platformFeeAmount" type="number">
+  Platform fee amount (decimal)
+</ParamField>
+
+<ParamField body="currency" type="string" default="CUP">
+  ISO 4217 currency code (3 letters)
+</ParamField>
+
+<ParamField body="status" type="string" default="PENDING">
+  Initial transaction status: PENDING, PROCESSED, FAILED, or CANCELLED
+</ParamField>
+
+<ParamField body="orderId" type="string">
+  Associated order UUID (if applicable)
+</ParamField>
+
+<ParamField body="tripId" type="string">
+  Associated trip UUID (if applicable)
+</ParamField>
+
+<ParamField body="fromUserId" type="string">
+  Source user UUID (debtor)
+</ParamField>
+
+<ParamField body="toUserId" type="string">
+  Destination user UUID (creditor)
+</ParamField>
+
+<ParamField body="processedAt" type="string">
+  Processing timestamp (ISO format)
+</ParamField>
+
+<ParamField body="description" type="string">
+  Human-readable description (max 250 characters)
+</ParamField>
+
+<ParamField body="metadata" type="object">
+  Free-form metadata (e.g., gateway response, logs)
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X POST "https://api.rodando.com/transactions" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "CHARGE",
+    "grossAmount": 100.00,
+    "platformFeeAmount": 20.00,
+    "netAmount": 80.00,
+    "currency": "CUP",
+    "status": "PENDING",
+    "orderId": "550e8400-e29b-41d4-a716-446655440000",
+    "tripId": "660e8400-e29b-41d4-a716-446655440000",
+    "fromUserId": "770e8400-e29b-41d4-a716-446655440000",
+    "toUserId": "880e8400-e29b-41d4-a716-446655440000",
+    "description": "Charge for trip #1234"
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json Response
+{
+  "success": true,
+  "data": {
+    "id": "aa0e8400-e29b-41d4-a716-446655440000",
+    "type": "CHARGE",
+    "grossAmount": 100.00,
+    "platformFeeAmount": 20.00,
+    "netAmount": 80.00,
+    "currency": "CUP",
+    "status": "PENDING",
+    "orderId": "550e8400-e29b-41d4-a716-446655440000",
+    "tripId": "660e8400-e29b-41d4-a716-446655440000",
+    "fromUserId": "770e8400-e29b-41d4-a716-446655440000",
+    "toUserId": "880e8400-e29b-41d4-a716-446655440000",
+    "description": "Charge for trip #1234",
+    "createdAt": "2026-03-09T10:00:00.000Z",
+    "updatedAt": "2026-03-09T10:00:00.000Z"
+  }
+}
+```
+</ResponseExample>
+
+---
+
+## Update Transaction
+
+Partially update a transaction's fields.
+
+<ParamField path="id" type="string" required>
+  Transaction UUID
+</ParamField>
+
+<ParamField body="status" type="string">
+  Updated transaction status
+</ParamField>
+
+<ParamField body="processedAt" type="string">
+  Processing timestamp (ISO format)
+</ParamField>
+
+<ParamField body="metadata" type="object">
+  Updated metadata
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X PATCH "https://api.rodando.com/transactions/aa0e8400-e29b-41d4-a716-446655440000" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "PROCESSED",
+    "processedAt": "2026-03-09T10:30:00.000Z"
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json Response
+{
+  "success": true,
+  "data": {
+    "id": "aa0e8400-e29b-41d4-a716-446655440000",
+    "status": "PROCESSED",
+    "processedAt": "2026-03-09T10:30:00.000Z",
+    "updatedAt": "2026-03-09T10:35:00.000Z"
+  }
+}
+```
+</ResponseExample>
+
+---
+
+## Delete Transaction
+
+Soft-delete a transaction. The transaction remains in the database but is marked as deleted.
+
+<ParamField path="id" type="string" required>
+  Transaction UUID
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X DELETE "https://api.rodando.com/transactions/aa0e8400-e29b-41d4-a716-446655440000" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+</RequestExample>
+
+<ResponseExample>
+```json Response
+{
+  "success": true,
+  "message": "Transaction soft-deleted",
+  "data": null
+}
+```
+</ResponseExample>
+
+---
+
+## Transaction Types
+
+- **CHARGE**: Debit from user (e.g., payment for a trip)
+- **CREDIT**: Credit to user (e.g., refund, bonus)
+- **REFUND**: Return of previously charged amount
+- **WITHDRAWAL**: User withdraws funds from their wallet
+- **TRANSFER**: Transfer between user accounts
+
+## Transaction Status
+
+- **PENDING**: Transaction created but not yet processed
+- **PROCESSED**: Transaction successfully completed
+- **FAILED**: Transaction processing failed
+- **CANCELLED**: Transaction was cancelled before processing

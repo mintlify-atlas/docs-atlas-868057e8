@@ -1,0 +1,374 @@
+---
+title: 'User Management'
+description: 'Manage users, profiles, and authentication in the Rodando platform'
+---
+
+## Overview
+
+The User Management API provides endpoints for registering users, managing user profiles, updating user information, and handling password changes. It supports different user types (passengers, drivers, and admins) with role-based access control.
+
+## Endpoints
+
+### Register User
+
+<api method="POST" endpoint="/users/register" />
+
+Register a new user with authentication credentials.
+
+**Request Body**
+
+```json
+{
+  "user": {
+    "name": "David Rodriguez",
+    "email": "david@example.com",
+    "phoneNumber": "+34123456789",
+    "userType": "passenger",
+    "profilePictureUrl": "https://example.com/avatar.jpg",
+    "preferredLanguage": "es",
+    "termsAcceptedAt": "2025-06-20T14:30:00Z",
+    "privacyPolicyAcceptedAt": "2025-06-20T14:30:00Z"
+  },
+  "credentials": {
+    "username": "david@example.com",
+    "password": "SecureP@ssw0rd!"
+  }
+}
+```
+
+**Response**
+
+<ResponseField name="success" type="boolean">
+  Indicates if the registration was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  User registration data including user ID and profile information
+</ResponseField>
+
+**Status Codes**
+- `201` - User registered successfully
+- `409` - Email already registered or credentials exist
+
+---
+
+### Get All Users
+
+<api method="GET" endpoint="/users" auth="bearer" />
+
+Get a paginated list of users (admin only).
+
+**Query Parameters**
+
+<ParamField query="page" type="number" default={1}>
+  Page number for pagination
+</ParamField>
+
+<ParamField query="limit" type="number" default={10}>
+  Number of users per page
+</ParamField>
+
+**Response**
+
+```json
+{
+  "success": true,
+  "message": "Users retrieved successfully",
+  "data": {
+    "users": [
+      {
+        "id": "123e4567-e89b-12d3-a456-426614174000",
+        "name": "David Rodriguez",
+        "email": "david@example.com",
+        "phoneNumber": "+34123456789",
+        "userType": "passenger",
+        "status": "active",
+        "createdAt": "2025-07-02T13:00:13.346Z"
+      }
+    ],
+    "total": 100,
+    "page": 1,
+    "limit": 10
+  }
+}
+```
+
+**Status Codes**
+- `200` - Users retrieved successfully
+- `401` - Authentication required
+- `403` - Admins only
+
+---
+
+### Get Current User Profile
+
+<api method="GET" endpoint="/users/profile" auth="bearer" />
+
+Get the profile of the currently authenticated user.
+
+**Response**
+
+```json
+{
+  "success": true,
+  "message": "Profile obtained correctly",
+  "data": {
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "name": "David",
+    "email": "david@gmail.com",
+    "phoneNumber": "+5355552993",
+    "profilePictureUrl": "https://example.com/avatar.jpg",
+    "createdAt": "2025-07-02T13:00:13.346Z"
+  }
+}
+```
+
+**Status Codes**
+- `200` - Profile retrieved successfully
+- `401` - Invalid or expired token
+- `500` - Internal error while getting user profile
+
+---
+
+### Get User by ID
+
+<api method="GET" endpoint="/users/{id}" auth="bearer" />
+
+Retrieve a single user by their UUID.
+
+**Path Parameters**
+
+<ParamField path="id" type="string" required>
+  UUID of the user to retrieve
+</ParamField>
+
+**Response**
+
+```json
+{
+  "success": true,
+  "message": "User retrieved successfully",
+  "data": {
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "name": "David Rodriguez",
+    "email": "david@example.com",
+    "phoneNumber": "+34123456789",
+    "userType": "passenger",
+    "status": "active",
+    "profilePictureUrl": "https://example.com/avatar.jpg",
+    "createdAt": "2025-07-02T13:00:13.346Z",
+    "updatedAt": "2025-07-02T13:00:13.346Z"
+  }
+}
+```
+
+**Status Codes**
+- `200` - User retrieved successfully
+- `404` - User not found
+- `500` - Internal server error
+
+---
+
+### Ping Location
+
+<api method="POST" endpoint="/users/ping-location" auth="bearer" />
+
+Update passenger location with optional heartbeat. Rate limited to 8 pings per 10 seconds.
+
+**Request Body**
+
+```json
+{
+  "lat": 40.4168,
+  "lng": -3.7038,
+  "accuracyMeters": 10.5,
+  "reportedAt": "2025-07-02T13:30:00Z",
+  "forceSave": false
+}
+```
+
+<ParamField body="lat" type="number">
+  Latitude (-90 to 90)
+</ParamField>
+
+<ParamField body="lng" type="number">
+  Longitude (-180 to 180)
+</ParamField>
+
+<ParamField body="accuracyMeters" type="number">
+  Location accuracy in meters (minimum 0)
+</ParamField>
+
+<ParamField body="reportedAt" type="string">
+  ISO8601 timestamp when location was captured
+</ParamField>
+
+<ParamField body="forceSave" type="boolean">
+  Force save location regardless of thresholds
+</ParamField>
+
+**Status Codes**
+- `200` - Location ping processed
+- `429` - Rate limit exceeded (too many pings)
+
+---
+
+### Update User
+
+<api method="PATCH" endpoint="/users/{id}" />
+
+Update user information such as name, email, or phone number.
+
+**Path Parameters**
+
+<ParamField path="id" type="string" required>
+  UUID of the user to update
+</ParamField>
+
+**Request Body**
+
+```json
+{
+  "name": "David Rodriguez Updated",
+  "email": "newemail@example.com",
+  "phoneNumber": "+34987654321"
+}
+```
+
+<ParamField body="name" type="string">
+  Full name (1-100 characters)
+</ParamField>
+
+<ParamField body="email" type="string">
+  Email address (5-150 characters)
+</ParamField>
+
+<ParamField body="phoneNumber" type="string">
+  Phone number (10-20 characters)
+</ParamField>
+
+**Response**
+
+```json
+{
+  "success": true,
+  "message": "User updated successfully",
+  "data": {
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "name": "David Rodriguez Updated",
+    "email": "newemail@example.com",
+    "phoneNumber": "+34987654321",
+    "updatedAt": "2025-07-02T14:00:00.000Z"
+  }
+}
+```
+
+**Status Codes**
+- `200` - User updated successfully
+- `400` - Invalid input data
+- `404` - User not found
+
+---
+
+### Change Password
+
+<api method="PATCH" endpoint="/users/{id}/password" auth="bearer" />
+
+Change the password for a user account.
+
+**Path Parameters**
+
+<ParamField path="id" type="string" required>
+  User UUID
+</ParamField>
+
+**Request Body**
+
+```json
+{
+  "newPassword": "N3wP@ssw0rd!",
+  "confirmPassword": "N3wP@ssw0rd!"
+}
+```
+
+<ParamField body="newPassword" type="string" required>
+  New password (must meet minimum length requirements)
+</ParamField>
+
+<ParamField body="confirmPassword" type="string" required>
+  Confirmation of new password (must match newPassword)
+</ParamField>
+
+**Response**
+
+```json
+{
+  "success": true,
+  "message": "Password updated successfully"
+}
+```
+
+**Status Codes**
+- `200` - Password updated successfully
+- `400` - Invalid password format or passwords don't match
+- `404` - User or credentials not found
+
+---
+
+### Delete User
+
+<api method="DELETE" endpoint="/users/{id}" auth="bearer" />
+
+Soft-delete a user by ID. The user is marked as deleted but not permanently removed from the database.
+
+**Path Parameters**
+
+<ParamField path="id" type="string" required>
+  UUID of the user to delete
+</ParamField>
+
+**Response**
+
+```json
+{
+  "success": true,
+  "message": "User deleted successfully"
+}
+```
+
+**Status Codes**
+- `200` - User deleted successfully
+- `404` - User not found
+- `500` - Internal server error
+
+---
+
+## User Types
+
+The API supports the following user types:
+
+- `passenger` - Standard user who books rides
+- `driver` - User who provides transportation services
+- `admin` - Administrative user with elevated permissions
+
+## User Status
+
+Users can have the following status values:
+
+- `active` - User account is active and can use the platform
+- `inactive` - User account is temporarily inactive
+- `banned` - User has been banned from the platform
+
+## Authentication
+
+Most endpoints require JWT authentication. Include the bearer token in the Authorization header:
+
+```
+Authorization: Bearer <your_token>
+```
+
+The `/users/register` and `/users` (GET) endpoints are public and don't require authentication.

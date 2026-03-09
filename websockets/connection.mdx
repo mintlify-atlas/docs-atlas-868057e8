@@ -1,0 +1,422 @@
+---
+title: Connection Setup
+description: How to establish and manage WebSocket connections
+---
+
+## Installation
+
+Install the Socket.io client library:
+
+<CodeGroup>
+```bash npm
+npm install socket.io-client
+```
+
+```bash yarn
+yarn add socket.io-client
+```
+
+```bash pnpm
+pnpm add socket.io-client
+```
+</CodeGroup>
+
+## Basic Connection
+
+### Driver Connection
+
+```javascript
+import { io } from 'socket.io-client';
+
+const driverSocket = io('http://localhost:3000/drivers', {
+  auth: {
+    token: 'your-jwt-access-token'
+  },
+  transports: ['websocket', 'polling'],
+  reconnection: true,
+  reconnectionAttempts: 5,
+  reconnectionDelay: 1000
+});
+
+// Listen for successful connection
+driverSocket.on('connect', () => {
+  console.log('Connected to /drivers namespace');
+  console.log('Socket ID:', driverSocket.id);
+});
+
+// Listen for hello event (server confirmation)
+driverSocket.on('hello', (data) => {
+  console.log('Server hello:', data);
+  // { ok: true, nsp: '/drivers' }
+});
+
+// Handle connection errors
+driverSocket.on('connect_error', (error) => {
+  console.error('Connection error:', error.message);
+});
+
+// Handle disconnection
+driverSocket.on('disconnect', (reason) => {
+  console.log('Disconnected:', reason);
+});
+```
+
+### Passenger Connection
+
+```javascript
+import { io } from 'socket.io-client';
+
+const passengerSocket = io('http://localhost:3000/passengers', {
+  auth: {
+    token: 'your-jwt-access-token'
+  }
+});
+
+passengerSocket.on('connect', () => {
+  console.log('Connected to /passengers namespace');
+});
+
+passengerSocket.on('hello', (data) => {
+  console.log('Server hello:', data);
+  // { ok: true, nsp: '/passengers' }
+});
+```
+
+### Admin Connection
+
+```javascript
+import { io } from 'socket.io-client';
+
+const adminSocket = io('http://localhost:3000/admin', {
+  auth: {
+    token: 'your-admin-jwt-access-token'
+  }
+});
+
+adminSocket.on('connect', () => {
+  console.log('Connected to /admin namespace');
+});
+```
+
+## Connection Lifecycle
+
+### Server-Side Validation
+
+When a client connects, the server performs these validation steps:
+
+```typescript
+// From driver-availability.gateway.ts:57
+async handleConnection(client: Socket) {
+  try {
+    // 1. Extract token from auth.token or Authorization header
+    const token =
+      (client.handshake.auth as any)?.token ||
+      (client.handshake.headers?.authorization || '').replace(
+        /^Bearer\s+/i,
+        '',
+      );
+    if (!token) throw new Error('Missing token');
+
+    // 2. Verify JWT
+    const payload = this.tokenService.verifyAccessToken<any>(token);
+    const userId = payload?.sub as string | undefined;
+    const sid = payload?.sid as string | undefined;
+    if (!userId || !sid) throw new Error('Missing sub/sid');
+
+    // 3. Validate user and session
+    const user = await this.usersRepo.findById(userId);
+    if (!user) throw new Error('User not found');
+    if (user.userType !== UserType.DRIVER) throw new Error('Wrong userType');
+    if (user.status !== UserStatus.ACTIVE) throw new Error('User inactive');
+
+    const session = await this.sessionRepo.findOne({ where: { jti: sid } });
+    if (!session || session.revoked) throw new Error('Invalid session');
+    if (
+      session.accessTokenExpiresAt &&
+      session.accessTokenExpiresAt < new Date()
+    ) {
+      throw new Error('Access expired');
+    }
+
+    // 4. Store data in socket context
+    const data: DriverSocketData = {
+      userId,
+      driverId: userId,
+      jti: sid,
+      sessionId: session.id ?? sid,
+      userType: 'DRIVER',
+    };
+    (client.data as DriverSocketData) = data;
+
+    // 5. Join canonical rooms
+    await client.join(Rooms.driver(userId));
+    await client.join(`session:${sid}`);
+
+    // 6. Log and send hello
+    this.logger.log(
+      `Driver WS connected user=${userId} sid=${sid} nsp=${client.nsp?.name}`
+    );
+    client.emit('hello', { ok: true, nsp: '/drivers' });
+  } catch (e) {
+    this.logger.warn(`Driver WS handshake failed: ${(e as Error).message}`);
+    client.disconnect(true);
+  }
+}
+```
+
+### Disconnection Handling
+
+```typescript
+// Server logs disconnection
+async handleDisconnect(client: Socket) {
+  const d = client.data || {};
+  this.logger.log(
+    `Driver WS disconnected user=${d.driverId ?? 'unknown'} sid=${d.jti ?? 'unknown'}`
+  );
+}
+```
+
+## Socket Context Data
+
+The server stores user context in `socket.data`:
+
+### Driver Socket Data
+
+```typescript
+interface DriverSocketData {
+  userId: string;           // User ID from JWT
+  driverId?: string;        // Same as userId for drivers
+  jti: string;              // Session ID from JWT (sid)
+  sessionId: string;        // PK of sessions table
+  sessionType?: string;     // Session type (e.g., "mobile")
+  userType: 'DRIVER';       // User type constant
+}
+```
+
+### Passenger Socket Data
+
+```typescript
+interface PassengerSocketData {
+  passengerId: string;      // User ID
+  sid: string;              // Session ID
+}
+```
+
+### Admin Socket Data
+
+```typescript
+interface AdminSocketData {
+  userId: string;           // Admin user ID
+  sid: string;              // Session ID
+  role: string;             // User type (ADMIN, DISPATCHER, etc.)
+}
+```
+
+## Rooms and Subscriptions
+
+Upon connection, sockets automatically join rooms:
+
+### Driver Rooms
+
+```typescript
+await client.join(Rooms.driver(userId));     // "driver:{userId}"
+await client.join(`session:${sid}`);         // "session:{sid}"
+```
+
+### Passenger Rooms
+
+```typescript
+await client.join(Rooms.passenger(userId));  // "passenger:{userId}"
+await client.join(`session:${sid}`);         // "session:{sid}"
+```
+
+### Admin Rooms
+
+```typescript
+await client.join('admin:all');              // All admin users
+// Optional: organization-specific rooms
+// await client.join(`admin:org:${orgId}`);
+```
+
+## Connection Options
+
+### Ping/Pong Configuration
+
+The driver gateway configures custom ping intervals:
+
+```typescript
+@WebSocketGateway({
+  namespace: '/drivers',
+  cors: { origin: '*', credentials: true },
+  pingTimeout: 20000,   // 20 seconds
+  pingInterval: 25000,  // 25 seconds
+})
+```
+
+### Transports
+
+By default, Socket.io supports both WebSocket and polling:
+
+```javascript
+const socket = io(url, {
+  transports: ['websocket', 'polling'],  // Try WebSocket first
+});
+```
+
+For production, prefer WebSocket-only:
+
+```javascript
+const socket = io(url, {
+  transports: ['websocket'],
+  upgrade: false,
+});
+```
+
+## Reconnection Strategy
+
+```javascript
+const socket = io(url, {
+  auth: { token },
+  reconnection: true,
+  reconnectionAttempts: 10,
+  reconnectionDelay: 1000,
+  reconnectionDelayMax: 5000,
+  randomizationFactor: 0.5,
+});
+
+socket.io.on('reconnect_attempt', (attempt) => {
+  console.log('Reconnection attempt:', attempt);
+});
+
+socket.io.on('reconnect', (attempt) => {
+  console.log('Reconnected after', attempt, 'attempts');
+});
+
+socket.io.on('reconnect_failed', () => {
+  console.error('Reconnection failed');
+});
+```
+
+## Error Handling
+
+### Common Connection Errors
+
+```javascript
+socket.on('connect_error', (error) => {
+  switch (error.message) {
+    case 'Missing token':
+      console.error('No JWT token provided');
+      // Redirect to login
+      break;
+    case 'Missing sub/sid':
+      console.error('Invalid token payload');
+      // Refresh token or re-login
+      break;
+    case 'User not found':
+      console.error('User account not found');
+      // Clear local data, redirect to login
+      break;
+    case 'Wrong userType':
+      console.error('User type mismatch');
+      // Connect to correct namespace
+      break;
+    case 'User inactive':
+      console.error('User account is inactive');
+      // Show account suspended message
+      break;
+    case 'Invalid session':
+      console.error('Session not found or revoked');
+      // Re-login required
+      break;
+    case 'Access expired':
+      console.error('Access token expired');
+      // Refresh token
+      break;
+    default:
+      console.error('Connection error:', error.message);
+  }
+});
+```
+
+## Forced Disconnection
+
+The server can force disconnect sockets in specific scenarios:
+
+### Session Revocation
+
+```typescript
+// From auth-realtime.publisher.ts:57
+sessionRevoked(ev: SessionRevokedEvent) {
+  // Disconnect all sockets for this session
+  this.driverGateway?.server
+    ?.to(`session:${ev.sid}`)
+    .disconnectSockets?.(true);
+
+  // Notify driver (if they have other active sessions)
+  this.driverGateway?.server
+    ?.to(`driver:${ev.userId}`)
+    .emit('auth:session_revoked', {
+      sid: ev.sid,
+      reason: ev.reason ?? 'revoked',
+      at: ev.at,
+    });
+}
+```
+
+### Session Refresh
+
+```typescript
+// From auth-realtime.publisher.ts:41
+sessionRefreshed(ev: SessionRefreshedEvent) {
+  // Force reconnection with new token
+  this.driverGateway?.server
+    ?.to(`session:${ev.oldSid}`)
+    .disconnectSockets?.(true);
+}
+```
+
+## Testing Connections
+
+### Simple Connection Test
+
+```javascript
+import { io } from 'socket.io-client';
+
+const token = 'your-jwt-token';
+const socket = io('http://localhost:3000/drivers', {
+  auth: { token }
+});
+
+socket.on('connect', () => {
+  console.log('✅ Connected:', socket.id);
+});
+
+socket.on('hello', (data) => {
+  console.log('✅ Hello received:', data);
+});
+
+socket.on('connect_error', (err) => {
+  console.error('❌ Connection error:', err.message);
+});
+
+socket.on('disconnect', (reason) => {
+  console.log('⚠️  Disconnected:', reason);
+});
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Driver Auth Events" icon="user-shield" href="/websockets/driver-auth">
+    Authentication lifecycle events
+  </Card>
+  <Card title="Driver Availability" icon="location-dot" href="/websockets/driver-availability">
+    Status and location updates
+  </Card>
+  <Card title="Passenger Events" icon="users" href="/websockets/passenger">
+    Trip lifecycle for passengers
+  </Card>
+  <Card title="Admin Events" icon="gauge-high" href="/websockets/admin">
+    Administrative monitoring
+  </Card>
+</CardGroup>

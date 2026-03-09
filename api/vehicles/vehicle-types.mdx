@@ -1,0 +1,285 @@
+---
+title: Vehicle Types
+description: Manage vehicle types and their pricing configurations
+---
+
+## Create Vehicle Type
+
+<api method="POST" endpoint="/vehicle-types">
+  Creates a new vehicle type with pricing and capacity configurations.
+
+  ### Request Body
+
+  <ParamField body="categoryId" type="string" format="uuid" required>
+    ID of the vehicle category this type belongs to
+  </ParamField>
+
+  <ParamField body="serviceClassIds" type="array" required>
+    Array of service class IDs (minimum 1 required)
+  </ParamField>
+
+  <ParamField body="name" type="string" required>
+    Specific name of the vehicle type (max 100 characters)
+  </ParamField>
+
+  <ParamField body="description" type="string">
+    Detailed description of the vehicle type
+  </ParamField>
+
+  <ParamField body="baseFare" type="number" default="1.0" required>
+    Initial base fare (max 2 decimal places)
+  </ParamField>
+
+  <ParamField body="costPerKm" type="number" default="1.0" required>
+    Cost per kilometer (max 4 decimal places)
+  </ParamField>
+
+  <ParamField body="costPerMinute" type="number" default="1.0" required>
+    Cost per minute of wait time (max 4 decimal places)
+  </ParamField>
+
+  <ParamField body="minFare" type="number" default="1.0" required>
+    Guaranteed minimum fare (max 2 decimal places)
+  </ParamField>
+
+  <ParamField body="defaultCapacity" type="integer" required>
+    Default passenger capacity (minimum 1)
+  </ParamField>
+
+  <ParamField body="iconUrl" type="string">
+    URL of the representative icon (max 255 characters)
+  </ParamField>
+
+  <ParamField body="isActive" type="boolean" default="true">
+    Whether this vehicle type is active
+  </ParamField>
+
+  ### Response
+
+  Returns the created vehicle type with all its details.
+
+  <ResponseExample>
+  ```json
+  {
+    "success": true,
+    "message": "Vehicle type created successfully",
+    "data": {
+      "id": "c4d5e6f7-8901-2345-6789-0abcdef12345",
+      "categoryId": "b7a9c9d6-3f28-4e9a-bf82-91f0a8f1a234",
+      "serviceClassIds": [
+        "e6b15a89-3c42-45b8-8d12-84c9c0f22d91",
+        "a1b2c3d4-5678-90ab-cdef-1234567890ab"
+      ],
+      "name": "SUV Compacto",
+      "description": "Un SUV de tamaño compacto con capacidad para 5 pasajeros",
+      "baseFare": 3.5,
+      "costPerKm": 1.25,
+      "costPerMinute": 0.35,
+      "minFare": 5.0,
+      "defaultCapacity": 4,
+      "iconUrl": "https://cdn.app.com/icons/suv.png",
+      "isActive": true,
+      "createdAt": "2024-01-15T10:30:00Z",
+      "updatedAt": "2024-01-15T10:30:00Z"
+    }
+  }
+  ```
+  </ResponseExample>
+</api>
+
+## List Vehicle Types
+
+<api method="GET" endpoint="/vehicle-types">
+  Retrieves a paginated list of vehicle types. Admin only.
+
+  ### Query Parameters
+
+  <ParamField query="page" type="integer" default="1">
+    Page number for pagination
+  </ParamField>
+
+  <ParamField query="limit" type="integer" default="10">
+    Number of items per page
+  </ParamField>
+
+  ### Response
+
+  Returns a paginated list of vehicle types.
+
+  <ResponseExample>
+  ```json
+  {
+    "success": true,
+    "message": "Vehicle types retrieved successfully",
+    "data": [
+      {
+        "id": "c4d5e6f7-8901-2345-6789-0abcdef12345",
+        "name": "SUV Compacto",
+        "baseFare": 3.5,
+        "defaultCapacity": 4,
+        "isActive": true
+      },
+      {
+        "id": "d5e6f7a8-9012-3456-7890-abcdef123456",
+        "name": "Sedán Ejecutivo",
+        "baseFare": 4.0,
+        "defaultCapacity": 3,
+        "isActive": true
+      }
+    ],
+    "meta": {
+      "page": 1,
+      "limit": 10,
+      "total": 15,
+      "totalPages": 2
+    }
+  }
+  ```
+  </ResponseExample>
+</api>
+
+## Get Vehicle Type by ID
+
+<api method="GET" endpoint="/vehicle-types/{id}">
+  Retrieves detailed information about a specific vehicle type.
+
+  ### Path Parameters
+
+  <ParamField path="id" type="string" format="uuid" required>
+    UUID of the vehicle type
+  </ParamField>
+
+  ### Response
+
+  Returns complete vehicle type details.
+
+  <ResponseExample>
+  ```json
+  {
+    "success": true,
+    "message": "Vehicle type retrieved successfully",
+    "data": {
+      "id": "c4d5e6f7-8901-2345-6789-0abcdef12345",
+      "categoryId": "b7a9c9d6-3f28-4e9a-bf82-91f0a8f1a234",
+      "serviceClassIds": [
+        "e6b15a89-3c42-45b8-8d12-84c9c0f22d91"
+      ],
+      "name": "SUV Compacto",
+      "description": "Un SUV de tamaño compacto con capacidad para 5 pasajeros",
+      "baseFare": 3.5,
+      "costPerKm": 1.25,
+      "costPerMinute": 0.35,
+      "minFare": 5.0,
+      "defaultCapacity": 4,
+      "iconUrl": "https://cdn.app.com/icons/suv.png",
+      "isActive": true,
+      "createdAt": "2024-01-15T10:30:00Z",
+      "updatedAt": "2024-01-15T10:30:00Z"
+    }
+  }
+  ```
+  </ResponseExample>
+</api>
+
+## Update Vehicle Type
+
+<api method="PATCH" endpoint="/vehicle-types/{id}">
+  Updates a vehicle type. All fields are optional (partial update).
+
+  ### Path Parameters
+
+  <ParamField path="id" type="string" format="uuid" required>
+    UUID of the vehicle type to update
+  </ParamField>
+
+  ### Request Body
+
+  <ParamField body="categoryId" type="string" format="uuid">
+    ID of the vehicle category
+  </ParamField>
+
+  <ParamField body="serviceClassIds" type="array">
+    Array of service class IDs
+  </ParamField>
+
+  <ParamField body="name" type="string">
+    Vehicle type name
+  </ParamField>
+
+  <ParamField body="description" type="string">
+    Description of the vehicle type
+  </ParamField>
+
+  <ParamField body="baseFare" type="number">
+    Base fare amount
+  </ParamField>
+
+  <ParamField body="costPerKm" type="number">
+    Cost per kilometer
+  </ParamField>
+
+  <ParamField body="costPerMinute" type="number">
+    Cost per minute
+  </ParamField>
+
+  <ParamField body="minFare" type="number">
+    Minimum fare
+  </ParamField>
+
+  <ParamField body="defaultCapacity" type="integer">
+    Default passenger capacity
+  </ParamField>
+
+  <ParamField body="iconUrl" type="string">
+    URL of the icon
+  </ParamField>
+
+  <ParamField body="isActive" type="boolean">
+    Whether the type is active
+  </ParamField>
+
+  ### Response
+
+  Returns the updated vehicle type.
+
+  <ResponseExample>
+  ```json
+  {
+    "success": true,
+    "message": "Vehicle type updated successfully",
+    "data": {
+      "id": "c4d5e6f7-8901-2345-6789-0abcdef12345",
+      "name": "Minivan",
+      "baseFare": 4.0,
+      "isActive": true
+    }
+  }
+  ```
+  </ResponseExample>
+</api>
+
+## Delete Vehicle Type
+
+<api method="DELETE" endpoint="/vehicle-types/{id}">
+  Soft-deletes a vehicle type (marks as inactive).
+
+  ### Path Parameters
+
+  <ParamField path="id" type="string" format="uuid" required>
+    UUID of the vehicle type to delete
+  </ParamField>
+
+  ### Response
+
+  Returns confirmation of deletion.
+
+  <ResponseExample>
+  ```json
+  {
+    "success": true,
+    "message": "Vehicle type deleted successfully",
+    "data": null
+  }
+  ```
+  </ResponseExample>
+</api>

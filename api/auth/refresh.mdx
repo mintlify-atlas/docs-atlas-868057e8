@@ -1,0 +1,190 @@
+---
+title: 'Refresh Token'
+api: 'POST /auth/refresh'
+---
+
+Refresh an expired access token using a valid refresh token. This endpoint rotates both the access and refresh tokens for enhanced security.
+
+## Authentication
+
+This endpoint is public but requires a valid refresh token either in:
+- **Cookie** (for web sessions): `refreshToken` HttpOnly cookie
+- **Request body** (for mobile/API clients): `refreshToken` field
+
+## Request Body
+
+<ParamField body="refreshToken" type="string">
+  Refresh token JWT. Required for API/Mobile clients. For web sessions, the token is automatically read from the HttpOnly cookie.
+</ParamField>
+
+## Response
+
+<ResponseField name="accessToken" type="string">
+  New JWT access token for authenticating API requests. Valid for 15 minutes.
+</ResponseField>
+
+<ResponseField name="refreshToken" type="string">
+  New JWT refresh token. Only returned for mobile/API clients. For web sessions, this is set as an HttpOnly cookie.
+</ResponseField>
+
+<ResponseField name="sessionType" type="enum">
+  Type of session.
+  
+  - `web`
+  - `mobile_app`
+  - `api_client`
+</ResponseField>
+
+<ResponseField name="accessTokenExpiresAt" type="number">
+  Access token expiration timestamp in milliseconds since epoch.
+</ResponseField>
+
+<ResponseField name="refreshTokenExpiresAt" type="number">
+  Refresh token expiration timestamp in milliseconds since epoch.
+</ResponseField>
+
+<ResponseField name="sid" type="string">
+  New session ID (JWT identifier) after token rotation.
+</ResponseField>
+
+## Error Responses
+
+<ResponseField name="400 Bad Request" type="error">
+  No refresh token provided in cookie or request body.
+  
+  ```json
+  {
+    "statusCode": 400,
+    "message": "No refresh token provided"
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="401 Unauthorized" type="error">
+  Invalid, expired, or revoked refresh token.
+  
+  **Session not found:**
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Refresh token inválido o sesión no encontrada"
+  }
+  ```
+  
+  **Session revoked or expired:**
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Refresh token inválido o revocado"
+  }
+  ```
+  
+  **Token reuse detected:**
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Refresh token inválido o revocado"
+  }
+  ```
+  
+  **User not found:**
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Usuario no encontrado para refresh token"
+  }
+  ```
+  
+  **User account inactive:**
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Cuenta inactiva"
+  }
+  ```
+  
+  **Session missing audience:**
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Sesión inválida (audiencia ausente)"
+  }
+  ```
+  
+  **Role mismatch on refresh:**
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Refresh token inválido o revocado"
+  }
+  ```
+</ResponseField>
+
+## Examples
+
+### Refresh Token (Mobile/API Client)
+
+```bash
+curl -X POST https://api.rodando.com/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{
+    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }'
+```
+
+### Refresh Token (Web - Cookie Based)
+
+```bash
+curl -X POST https://api.rodando.com/auth/refresh \
+  -H "Content-Type: application/json" \
+  -H "Cookie: refreshToken=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -d '{}'
+```
+
+### Response Example
+
+```json
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.new_access_token...",
+  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.new_refresh_token...",
+  "sessionType": "mobile_app",
+  "accessTokenExpiresAt": 1710000899999,
+  "refreshTokenExpiresAt": 1710605699999,
+  "sid": "650e8400-e29b-41d4-a716-446655440001"
+}
+```
+
+## Security Features
+
+### Token Rotation
+Both access and refresh tokens are rotated on each refresh request. The old refresh token is immediately invalidated after generating new tokens.
+
+### Token Reuse Detection
+The system detects and prevents refresh token reuse attacks:
+- Each refresh token is hashed and stored in the database
+- When a refresh token is used, its hash is verified against the stored hash
+- If a token that doesn't match the stored hash is detected, the session is immediately revoked
+- This protects against token theft and replay attacks
+
+### Session Validation
+On each refresh, the system validates:
+- Token signature and expiration
+- Session exists and is not revoked
+- User account is still active
+- User role matches the application audience stored in the session
+- No token reuse has occurred
+
+### Audience and Role Validation
+The refresh endpoint maintains the security model established during login:
+- The `appAudience` from the original login is stored in the session
+- On refresh, the user's role is revalidated against the stored audience
+- If the user's role no longer matches the required role for the audience, the session is revoked
+
+## Notes
+
+- **Web sessions**: The new refresh token is automatically set as an HttpOnly cookie and not included in the response body
+- **Mobile/API sessions**: Both new tokens are returned in the response body
+- The old refresh token becomes invalid immediately after successful refresh
+- The session ID (`sid`) changes with each refresh for additional security
+- If token reuse is detected, the entire session is revoked and a new login is required
+- Sessions are automatically revoked if the user account becomes inactive

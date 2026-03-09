@@ -1,0 +1,536 @@
+---
+title: Driver Availability
+description: Manage driver online status, location tracking, and real-time availability
+---
+
+## List Driver Availability
+
+<api method="GET" path="/driver-availability">
+  Retrieves a paginated list of driver availability records with filters
+</api>
+
+### Query Parameters
+
+<ParamField query="page" type="number" default="1">
+  Page number for pagination
+</ParamField>
+
+<ParamField query="limit" type="number" default="10">
+  Number of items per page
+</ParamField>
+
+<ParamField query="driverId" type="string">
+  Filter by driver UUID
+</ParamField>
+
+<ParamField query="isOnline" type="boolean">
+  Filter by online status
+</ParamField>
+
+<ParamField query="isAvailableForTrips" type="boolean">
+  Filter by trip availability
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the operation was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message
+</ResponseField>
+
+<ResponseField name="data" type="array">
+  Array of driver availability records
+</ResponseField>
+
+<ResponseField name="meta" type="object">
+  Pagination metadata
+</ResponseField>
+
+---
+
+## Create Driver Availability
+
+<api method="POST" path="/driver-availability">
+  Creates a new driver availability record
+</api>
+
+### Body Parameters
+
+<ParamField body="driverId" type="string" required>
+  UUID of the driver
+</ParamField>
+
+<ParamField body="isOnline" type="boolean">
+  Whether the driver is currently online. Defaults to `false`
+</ParamField>
+
+<ParamField body="isAvailableForTrips" type="boolean">
+  Whether the driver is available to accept trips. Defaults to `false`
+</ParamField>
+
+<ParamField body="lastLocation" type="object">
+  Driver's last known location
+  <Expandable title="properties">
+    <ParamField body="lat" type="number" required>
+      Latitude coordinate (-90 to 90)
+    </ParamField>
+    <ParamField body="lng" type="number" required>
+      Longitude coordinate (-180 to 180)
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="lastLocationTimestamp" type="string">
+  Timestamp of the last location update (ISO 8601)
+</ParamField>
+
+<ParamField body="currentTripId" type="string">
+  UUID of the current active trip, or `null` if no active trip
+</ParamField>
+
+<ParamField body="currentVehicleId" type="string">
+  UUID of the vehicle currently being used, or `null` if none
+</ParamField>
+
+<ParamField body="lastOnlineTimestamp" type="string">
+  Timestamp when the driver last went online (ISO 8601)
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the operation was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Created driver availability record
+  <Expandable title="properties">
+    <ResponseField name="id" type="string">
+      Availability record UUID
+    </ResponseField>
+    <ResponseField name="driverId" type="string">
+      Driver UUID
+    </ResponseField>
+    <ResponseField name="isOnline" type="boolean">
+      Online status
+    </ResponseField>
+    <ResponseField name="isAvailableForTrips" type="boolean">
+      Trip availability status
+    </ResponseField>
+    <ResponseField name="lastLocation" type="object">
+      Last known location coordinates
+    </ResponseField>
+    <ResponseField name="currentTripId" type="string">
+      Current trip UUID
+    </ResponseField>
+    <ResponseField name="currentVehicleId" type="string">
+      Current vehicle UUID
+    </ResponseField>
+    <ResponseField name="updatedAt" type="string">
+      Last update timestamp
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## Get Driver Availability by Driver
+
+<api method="GET" path="/driver-availability/by-driver/{driverId}">
+  Retrieves availability record for a specific driver
+</api>
+
+### Path Parameters
+
+<ParamField path="driverId" type="string" required>
+  UUID of the driver
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the operation was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Driver availability record
+</ResponseField>
+
+---
+
+## Get Authenticated Driver Availability
+
+<api method="GET" path="/driver-availability/driver-auth">
+  Retrieves availability record for the authenticated driver (requires JWT authentication)
+</api>
+
+### Headers
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for authentication
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the operation was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Driver availability record
+</ResponseField>
+
+---
+
+## Find Nearby Drivers
+
+<api method="GET" path="/driver-availability/nearby">
+  Finds available drivers near a specific location
+</api>
+
+### Query Parameters
+
+<ParamField query="lat" type="number" required>
+  Latitude of the search location
+</ParamField>
+
+<ParamField query="lng" type="number" required>
+  Longitude of the search location
+</ParamField>
+
+<ParamField query="radiusMeters" type="number" default="2000">
+  Search radius in meters (default: 2000m)
+</ParamField>
+
+<ParamField query="limit" type="number" default="50">
+  Maximum number of drivers to return (default: 50)
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the operation was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message
+</ResponseField>
+
+<ResponseField name="data" type="array">
+  Array of nearby available drivers with distance information
+</ResponseField>
+
+---
+
+## Upsert Driver Availability
+
+<api method="POST" path="/driver-availability/upsert">
+  Creates or updates driver availability record based on driverId
+</api>
+
+### Body Parameters
+
+<ParamField body="driverId" type="string" required>
+  UUID of the driver
+</ParamField>
+
+<ParamField body="isOnline" type="boolean">
+  Online status
+</ParamField>
+
+<ParamField body="isAvailableForTrips" type="boolean">
+  Trip availability status
+</ParamField>
+
+<ParamField body="lastLocation" type="object">
+  Location coordinates
+  <Expandable title="properties">
+    <ParamField body="lat" type="number" required>
+      Latitude
+    </ParamField>
+    <ParamField body="lng" type="number" required>
+      Longitude
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="lastLocationTimestamp" type="string">
+  Location timestamp (ISO 8601)
+</ParamField>
+
+<ParamField body="lastOnlineTimestamp" type="string">
+  Online timestamp (ISO 8601)
+</ParamField>
+
+<ParamField body="currentTripId" type="string">
+  Current trip UUID or `null`
+</ParamField>
+
+<ParamField body="currentVehicleId" type="string">
+  Current vehicle UUID or `null`
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the operation was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Created or updated availability record
+</ResponseField>
+
+---
+
+## Ping Location
+
+<api method="POST" path="/driver-availability/ping-location">
+  Updates driver location and heartbeat (authenticated, rate limited: 8 pings per 10 seconds)
+</api>
+
+### Headers
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for authentication
+</ParamField>
+
+### Body Parameters
+
+<ParamField body="lat" type="number">
+  Current latitude (if provided, triggers location update)
+</ParamField>
+
+<ParamField body="lng" type="number">
+  Current longitude (if provided, triggers location update)
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the operation was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Updated availability record
+</ResponseField>
+
+<Note>
+  This endpoint is rate-limited to prevent excessive updates. If lat/lng are provided, the location is updated only if the driver has moved beyond a minimum threshold. Without coordinates, it acts as a heartbeat ping.
+</Note>
+
+---
+
+## Update Driver Status
+
+<api method="PATCH" path="/driver-availability/{driverId}/status">
+  Updates driver online and availability status (admin endpoint)
+</api>
+
+### Path Parameters
+
+<ParamField path="driverId" type="string" required>
+  UUID of the driver
+</ParamField>
+
+### Body Parameters
+
+<ParamField body="isOnline" type="boolean">
+  New online status
+</ParamField>
+
+<ParamField body="isAvailableForTrips" type="boolean">
+  New trip availability status
+</ParamField>
+
+<ParamField body="availabilityReason" type="enum">
+  Reason for unavailability, or `null` to clear
+  - `OFFLINE` - Driver is offline
+  - `ON_TRIP` - Driver is on an active trip
+  - `UNAVAILABLE` - Driver is unavailable for other reasons
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the operation was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Updated availability record
+</ResponseField>
+
+---
+
+## Update Status by Driver
+
+<api method="PATCH" path="/driver-availability/status-by-driver">
+  Updates the authenticated driver's own status (requires JWT authentication)
+</api>
+
+### Headers
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for authentication
+</ParamField>
+
+### Body Parameters
+
+<ParamField body="isOnline" type="boolean">
+  New online status
+</ParamField>
+
+<ParamField body="isAvailableForTrips" type="boolean">
+  New trip availability status
+</ParamField>
+
+<ParamField body="availabilityReason" type="enum">
+  Reason for unavailability
+  - `OFFLINE`
+  - `ON_TRIP`
+  - `UNAVAILABLE`
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the operation was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Updated availability record
+</ResponseField>
+
+---
+
+## Update Location
+
+<api method="POST" path="/driver-availability/{driverId}/location">
+  Updates driver's current location
+</api>
+
+### Path Parameters
+
+<ParamField path="driverId" type="string" required>
+  UUID of the driver
+</ParamField>
+
+### Body Parameters
+
+<ParamField body="lat" type="number" required>
+  Latitude coordinate
+</ParamField>
+
+<ParamField body="lng" type="number" required>
+  Longitude coordinate
+</ParamField>
+
+<ParamField body="lastLocationTimestamp" type="string">
+  Timestamp of the location update (ISO 8601)
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the operation was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Updated availability record
+</ResponseField>
+
+---
+
+## Set or Clear Current Trip
+
+<api method="PATCH" path="/driver-availability/{driverId}/trip">
+  Associates a driver with a trip or clears the current trip
+</api>
+
+### Path Parameters
+
+<ParamField path="driverId" type="string" required>
+  UUID of the driver
+</ParamField>
+
+### Body Parameters
+
+<ParamField body="currentTripId" type="string">
+  UUID of the trip to assign, or `null` to clear the current trip
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the operation was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Updated availability record
+</ResponseField>
+
+---
+
+## Delete Driver Availability
+
+<api method="DELETE" path="/driver-availability/{driverId}">
+  Soft-deletes a driver availability record
+</api>
+
+### Path Parameters
+
+<ParamField path="driverId" type="string" required>
+  UUID of the driver
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the operation was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message
+</ResponseField>
+
+<ResponseField name="data" type="null">
+  Returns null for deleted resources
+</ResponseField>

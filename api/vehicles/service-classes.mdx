@@ -1,0 +1,283 @@
+---
+title: Service Classes
+description: Manage vehicle service classes and pricing multipliers
+---
+
+## Create Service Class
+
+<api method="POST" endpoint="/vehicle-service-classes">
+  Creates a new vehicle service class with pricing multipliers and capacity ranges.
+
+  ### Request Body
+
+  <ParamField body="name" type="string" required>
+    Unique name of the service class (max 100 characters)
+  </ParamField>
+
+  <ParamField body="description" type="string">
+    Detailed description of the service class
+  </ParamField>
+
+  <ParamField body="baseFareMultiplier" type="number" default="1.0" required>
+    Multiplier applied to base fare (max 2 decimal places)
+  </ParamField>
+
+  <ParamField body="costPerKmMultiplier" type="number" default="1.0" required>
+    Multiplier for cost per kilometer (max 2 decimal places)
+  </ParamField>
+
+  <ParamField body="costPerMinuteMultiplier" type="number" default="1.0" required>
+    Multiplier for cost per minute (max 2 decimal places)
+  </ParamField>
+
+  <ParamField body="minFareMultiplier" type="number" default="1.0" required>
+    Multiplier for minimum fare (max 2 decimal places)
+  </ParamField>
+
+  <ParamField body="minCapacity" type="integer" required>
+    Minimum passenger capacity (minimum 1)
+  </ParamField>
+
+  <ParamField body="maxCapacity" type="integer" required>
+    Maximum passenger capacity (minimum 1)
+  </ParamField>
+
+  <ParamField body="iconUrl" type="string" format="url">
+    URL of the representative icon (max 255 characters)
+  </ParamField>
+
+  <ParamField body="displayOrder" type="integer" default="1">
+    Display order in the UI (minimum 1)
+  </ParamField>
+
+  <ParamField body="isActive" type="boolean" default="true">
+    Whether the service class is active
+  </ParamField>
+
+  ### Response
+
+  Returns the created service class.
+
+  <ResponseExample>
+  ```json
+  {
+    "success": true,
+    "message": "Vehicle service class created successfully",
+    "data": {
+      "id": "e6b15a89-3c42-45b8-8d12-84c9c0f22d91",
+      "name": "Economy",
+      "description": "La opción más económica para viajes diarios",
+      "baseFareMultiplier": 1.2,
+      "costPerKmMultiplier": 1.1,
+      "costPerMinuteMultiplier": 1.05,
+      "minFareMultiplier": 1.0,
+      "minCapacity": 2,
+      "maxCapacity": 6,
+      "iconUrl": "https://cdn.example.com/icons/economy.png",
+      "displayOrder": 1,
+      "isActive": true,
+      "createdAt": "2024-01-15T10:30:00Z",
+      "updatedAt": "2024-01-15T10:30:00Z"
+    }
+  }
+  ```
+  </ResponseExample>
+</api>
+
+## List Service Classes
+
+<api method="GET" endpoint="/vehicle-service-classes">
+  Retrieves a paginated list of vehicle service classes. Admin only.
+
+  ### Query Parameters
+
+  <ParamField query="page" type="integer" default="1">
+    Page number for pagination
+  </ParamField>
+
+  <ParamField query="limit" type="integer" default="10">
+    Number of items per page
+  </ParamField>
+
+  ### Response
+
+  Returns a paginated list of service classes.
+
+  <ResponseExample>
+  ```json
+  {
+    "success": true,
+    "message": "Vehicle service classes retrieved successfully",
+    "data": [
+      {
+        "id": "e6b15a89-3c42-45b8-8d12-84c9c0f22d91",
+        "name": "Economy",
+        "baseFareMultiplier": 1.2,
+        "minCapacity": 2,
+        "maxCapacity": 6,
+        "isActive": true
+      },
+      {
+        "id": "f7c26b9a-4d53-56c9-9e23-95d0d1f33e02",
+        "name": "Premium",
+        "baseFareMultiplier": 1.5,
+        "minCapacity": 3,
+        "maxCapacity": 7,
+        "isActive": true
+      }
+    ],
+    "meta": {
+      "page": 1,
+      "limit": 10,
+      "total": 5,
+      "totalPages": 1
+    }
+  }
+  ```
+  </ResponseExample>
+</api>
+
+## Get Service Class by ID
+
+<api method="GET" endpoint="/vehicle-service-classes/{id}">
+  Retrieves detailed information about a specific service class.
+
+  ### Path Parameters
+
+  <ParamField path="id" type="string" format="uuid" required>
+    UUID of the vehicle service class
+  </ParamField>
+
+  ### Response
+
+  Returns complete service class details.
+
+  <ResponseExample>
+  ```json
+  {
+    "success": true,
+    "message": "Vehicle service class retrieved successfully",
+    "data": {
+      "id": "e6b15a89-3c42-45b8-8d12-84c9c0f22d91",
+      "name": "Economy",
+      "description": "La opción más económica para viajes diarios",
+      "baseFareMultiplier": 1.2,
+      "costPerKmMultiplier": 1.1,
+      "costPerMinuteMultiplier": 1.05,
+      "minFareMultiplier": 1.0,
+      "minCapacity": 2,
+      "maxCapacity": 6,
+      "iconUrl": "https://cdn.example.com/icons/economy.png",
+      "displayOrder": 1,
+      "isActive": true,
+      "createdAt": "2024-01-15T10:30:00Z",
+      "updatedAt": "2024-01-15T10:30:00Z"
+    }
+  }
+  ```
+  </ResponseExample>
+</api>
+
+## Update Service Class
+
+<api method="PATCH" endpoint="/vehicle-service-classes/{id}">
+  Updates a vehicle service class. All fields are optional (partial update).
+
+  ### Path Parameters
+
+  <ParamField path="id" type="string" format="uuid" required>
+    UUID of the service class to update
+  </ParamField>
+
+  ### Request Body
+
+  <ParamField body="name" type="string">
+    New name for the service class (max 100 characters)
+  </ParamField>
+
+  <ParamField body="description" type="string">
+    Updated description
+  </ParamField>
+
+  <ParamField body="baseFareMultiplier" type="number">
+    Updated base fare multiplier
+  </ParamField>
+
+  <ParamField body="costPerKmMultiplier" type="number">
+    Updated cost per km multiplier
+  </ParamField>
+
+  <ParamField body="costPerMinuteMultiplier" type="number">
+    Updated cost per minute multiplier
+  </ParamField>
+
+  <ParamField body="minFareMultiplier" type="number">
+    Updated minimum fare multiplier
+  </ParamField>
+
+  <ParamField body="minCapacity" type="integer">
+    New minimum capacity
+  </ParamField>
+
+  <ParamField body="maxCapacity" type="integer">
+    New maximum capacity
+  </ParamField>
+
+  <ParamField body="iconUrl" type="string" format="url">
+    Updated icon URL
+  </ParamField>
+
+  <ParamField body="displayOrder" type="integer">
+    New display order in UI
+  </ParamField>
+
+  <ParamField body="isActive" type="boolean">
+    Whether the service class is active
+  </ParamField>
+
+  ### Response
+
+  Returns the updated service class.
+
+  <ResponseExample>
+  ```json
+  {
+    "success": true,
+    "message": "Vehicle service class updated successfully",
+    "data": {
+      "id": "e6b15a89-3c42-45b8-8d12-84c9c0f22d91",
+      "name": "Premium",
+      "description": "Vehículos de alta gama con mayor confort",
+      "baseFareMultiplier": 1.5,
+      "isActive": true
+    }
+  }
+  ```
+  </ResponseExample>
+</api>
+
+## Delete Service Class
+
+<api method="DELETE" endpoint="/vehicle-service-classes/{id}">
+  Soft-deletes a vehicle service class (marks as inactive).
+
+  ### Path Parameters
+
+  <ParamField path="id" type="string" format="uuid" required>
+    UUID of the service class to delete
+  </ParamField>
+
+  ### Response
+
+  Returns confirmation of deletion.
+
+  <ResponseExample>
+  ```json
+  {
+    "success": true,
+    "message": "Vehicle service class deleted successfully",
+    "data": null
+  }
+  ```
+  </ResponseExample>
+</api>

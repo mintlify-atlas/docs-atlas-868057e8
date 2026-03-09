@@ -1,0 +1,644 @@
+---
+title: Passenger Events
+description: Real-time trip lifecycle events for passengers
+---
+
+## Overview
+
+The **Passenger Gateway** (`/passengers` namespace) handles real-time trip updates for passengers, including trip requests, driver assignments, driver location, and trip status changes.
+
+## Gateway Configuration
+
+```typescript
+// From passenger.gateway.ts:16
+@WebSocketGateway({ namespace: '/passengers', cors: true })
+export class PassengerGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+```
+
+## Connection
+
+```javascript
+import { io } from 'socket.io-client';
+
+const passengerSocket = io('http://localhost:3000/passengers', {
+  auth: { token: accessToken }
+});
+
+passengerSocket.on('connect', () => {
+  console.log('Connected as passenger');
+});
+
+passengerSocket.on('hello', (data) => {
+  console.log('Server hello:', data);
+  // { ok: true, nsp: '/passengers' }
+});
+```
+
+## Trip Lifecycle Events
+
+### `trip:requested`
+
+Triggered when a passenger requests a new trip.
+
+**Payload:**
+
+```typescript
+{
+  tripId: string;
+  passengerId: string;
+  requestedAt: string;              // ISO timestamp
+  pickup?: {
+    lat: number;
+    lng: number;
+    address?: string | null;
+  } | null;
+  fareEstimatedTotal?: number | null;
+  fareFinalCurrency?: string | null;
+  status: 'pending';
+}
+```
+
+**Client Example:**
+
+```javascript
+passengerSocket.on('trip:requested', (data) => {
+  console.log('Trip requested:', data.tripId);
+  console.log('Pickup:', data.pickup?.address);
+  console.log('Estimated fare:', data.fareEstimatedTotal, data.fareFinalCurrency);
+  
+  // Show "Finding driver..." UI
+  showFindingDriver(data);
+});
+```
+
+### `trip:assigning_started`
+
+Triggered when the system starts assigning a driver to the trip.
+
+**Payload:**
+
+```typescript
+{
+  tripId: string;
+  at: string;                      // ISO timestamp
+  previousStatus: 'pending';
+  currentStatus: 'assigning';
+}
+```
+
+**Client Example:**
+
+```javascript
+passengerSocket.on('trip:assigning_started', (data) => {
+  console.log('Assigning driver for trip:', data.tripId);
+  console.log('Status:', data.currentStatus);
+  
+  // Update UI to show assignment in progress
+  updateTripStatus('Searching for nearby drivers...');
+});
+```
+
+### `trip:driver_accepted`
+
+Triggered when a driver accepts the trip assignment.
+
+**Payload:**
+
+```typescript
+{
+  tripId: string;
+  at: string;                      // ISO timestamp
+  currentStatus: 'accepted';
+  driver: {
+    id: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    phoneNumber?: string | null;
+    profilePictureUrl?: string | null;
+    rating?: {
+      average: number | null;
+      count: number | null;
+    } | null;
+  } | null;
+  vehicle: {
+    id: string;
+    make?: string | null;
+    model?: string | null;
+    year?: number | null;
+    color?: string | null;
+    licensePlate?: string | null;
+  } | null;
+}
+```
+
+**Client Example:**
+
+```javascript
+passengerSocket.on('trip:driver_accepted', (data) => {
+  console.log('Driver accepted!');
+  console.log('Driver:', data.driver?.firstName, data.driver?.lastName);
+  console.log('Rating:', data.driver?.rating?.average);
+  console.log('Vehicle:', data.vehicle?.make, data.vehicle?.model, data.vehicle?.color);
+  console.log('Plate:', data.vehicle?.licensePlate);
+  
+  // Show driver details
+  showDriverDetails({
+    name: `${data.driver.firstName} ${data.driver.lastName}`,
+    rating: data.driver.rating?.average,
+    photo: data.driver.profilePictureUrl,
+    vehicle: `${data.vehicle.color} ${data.vehicle.make} ${data.vehicle.model}`,
+    plate: data.vehicle.licensePlate
+  });
+});
+```
+
+### `trip:driver_assigned`
+
+Alternative event (mirror) for driver assignment.
+
+**Payload:**
+
+```typescript
+{
+  tripId: string;
+  driverId: string;
+  vehicleId: string;
+  at: string;
+  currentStatus: 'accepted';
+}
+```
+
+### `trip:no_drivers_found`
+
+Triggered when no available drivers are found for the trip.
+
+**Payload:**
+
+```typescript
+{
+  tripId: string;
+  reason?: string;
+  at: string;                      // ISO timestamp
+}
+```
+
+**Client Example:**
+
+```javascript
+passengerSocket.on('trip:no_drivers_found', (data) => {
+  console.log('No drivers available');
+  console.log('Reason:', data.reason);
+  
+  // Show error message
+  showError('No drivers available at the moment. Please try again later.');
+  
+  // Allow user to retry or cancel
+  showRetryOptions(data.tripId);
+});
+```
+
+### `trip:arriving_started`
+
+Triggered when driver starts heading to pickup location.
+
+**Payload:**
+
+```typescript
+{
+  tripId: string;
+  at: string;
+  previousStatus: 'accepted';
+  currentStatus: 'arriving';
+}
+```
+
+**Client Example:**
+
+```javascript
+passengerSocket.on('trip:arriving_started', (data) => {
+  console.log('Driver is on the way!');
+  
+  // Update status
+  updateTripStatus('Driver is heading to pickup location');
+});
+```
+
+### `trip:driver_en_route`
+
+Triggered when driver is en route to pickup with ETA updates.
+
+**Payload:**
+
+```typescript
+{
+  tripId: string;
+  at: string;
+  etaMinutes?: number | null;      // Estimated minutes until arrival
+  driverPosition?: {
+    lat: number;
+    lng: number;
+  } | null;
+}
+```
+
+**Client Example:**
+
+```javascript
+passengerSocket.on('trip:driver_en_route', (data) => {
+  console.log('Driver ETA:', data.etaMinutes, 'minutes');
+  console.log('Driver position:', data.driverPosition);
+  
+  // Update ETA display
+  updateETA(data.etaMinutes);
+  
+  // Update driver marker on map
+  if (data.driverPosition) {
+    updateDriverMarker(data.driverPosition.lat, data.driverPosition.lng);
+  }
+});
+```
+
+### `trip:driver_arrived_pickup`
+
+Triggered when driver arrives at pickup location.
+
+**Payload:**
+
+```typescript
+{
+  tripId: string;
+  at: string;
+  currentStatus: 'arriving';
+}
+```
+
+**Client Example:**
+
+```javascript
+passengerSocket.on('trip:driver_arrived_pickup', (data) => {
+  console.log('Driver has arrived!');
+  
+  // Show notification
+  showNotification('Your driver has arrived', 'Please head to the pickup location');
+  
+  // Update UI
+  updateTripStatus('Driver is waiting for you');
+  
+  // Play sound
+  playArrivalSound();
+});
+```
+
+### `trip:started`
+
+Triggered when the trip starts (passenger is in the vehicle).
+
+**Payload:**
+
+```typescript
+{
+  tripId: string;
+  at: string;
+  currentStatus: 'in_progress';
+}
+```
+
+**Client Example:**
+
+```javascript
+passengerSocket.on('trip:started', (data) => {
+  console.log('Trip started!');
+  
+  // Update UI
+  updateTripStatus('Trip in progress');
+  
+  // Show route to destination
+  showRouteToDestination(data.tripId);
+});
+```
+
+### `trip:completed`
+
+Triggered when the trip is completed.
+
+**Payload:**
+
+```typescript
+{
+  tripId: string;
+  at: string;
+  driverId: string;
+  currentStatus: 'completed';
+  fareTotal?: number | null;
+  currency?: string | null;
+}
+```
+
+**Client Example:**
+
+```javascript
+passengerSocket.on('trip:completed', (data) => {
+  console.log('Trip completed!');
+  console.log('Total fare:', data.fareTotal, data.currency);
+  
+  // Show completion screen
+  showTripSummary({
+    tripId: data.tripId,
+    fare: data.fareTotal,
+    currency: data.currency,
+    completedAt: data.at
+  });
+  
+  // Prompt for rating
+  promptDriverRating(data.driverId);
+});
+```
+
+## Complete Client Example
+
+```javascript
+import { io } from 'socket.io-client';
+
+class PassengerTripClient {
+  constructor(accessToken) {
+    this.socket = io('http://localhost:3000/passengers', {
+      auth: { token: accessToken },
+      reconnection: true,
+      reconnectionAttempts: 5,
+    });
+
+    this.currentTrip = null;
+    this.setupListeners();
+  }
+
+  setupListeners() {
+    this.socket.on('connect', () => {
+      console.log('✅ Connected as passenger');
+    });
+
+    this.socket.on('hello', (data) => {
+      console.log('👋 Hello:', data);
+    });
+
+    // Trip lifecycle
+    this.socket.on('trip:requested', (data) => {
+      console.log('🚕 Trip requested:', data.tripId);
+      this.currentTrip = data.tripId;
+      this.onTripRequested(data);
+    });
+
+    this.socket.on('trip:assigning_started', (data) => {
+      console.log('🔍 Finding driver...');
+      this.onAssigningStarted(data);
+    });
+
+    this.socket.on('trip:driver_accepted', (data) => {
+      console.log('✅ Driver accepted!');
+      this.onDriverAccepted(data);
+    });
+
+    this.socket.on('trip:no_drivers_found', (data) => {
+      console.log('❌ No drivers found');
+      this.onNoDriversFound(data);
+    });
+
+    this.socket.on('trip:arriving_started', (data) => {
+      console.log('🚗 Driver on the way');
+      this.onArrivingStarted(data);
+    });
+
+    this.socket.on('trip:driver_en_route', (data) => {
+      console.log(`⏱️  ETA: ${data.etaMinutes} min`);
+      this.onDriverEnRoute(data);
+    });
+
+    this.socket.on('trip:driver_arrived_pickup', (data) => {
+      console.log('📍 Driver arrived!');
+      this.onDriverArrived(data);
+    });
+
+    this.socket.on('trip:started', (data) => {
+      console.log('🚀 Trip started!');
+      this.onTripStarted(data);
+    });
+
+    this.socket.on('trip:completed', (data) => {
+      console.log('🏁 Trip completed!');
+      this.onTripCompleted(data);
+    });
+
+    this.socket.on('disconnect', (reason) => {
+      console.log('⚠️  Disconnected:', reason);
+      this.onDisconnect(reason);
+    });
+  }
+
+  onTripRequested(data) {
+    document.getElementById('status').textContent = 'Requesting trip...';
+    document.getElementById('trip-id').textContent = data.tripId;
+    document.getElementById('estimated-fare').textContent = 
+      `${data.fareEstimatedTotal} ${data.fareFinalCurrency}`;
+  }
+
+  onAssigningStarted(data) {
+    document.getElementById('status').textContent = 'Finding nearby drivers...';
+    this.startSearchAnimation();
+  }
+
+  onDriverAccepted(data) {
+    this.stopSearchAnimation();
+    
+    // Display driver info
+    const driver = data.driver;
+    const vehicle = data.vehicle;
+    
+    document.getElementById('status').textContent = 'Driver assigned!';
+    document.getElementById('driver-name').textContent = 
+      `${driver.firstName} ${driver.lastName}`;
+    document.getElementById('driver-rating').textContent = 
+      driver.rating?.average?.toFixed(1) || 'N/A';
+    document.getElementById('vehicle-info').textContent = 
+      `${vehicle.color} ${vehicle.make} ${vehicle.model}`;
+    document.getElementById('license-plate').textContent = vehicle.licensePlate;
+    
+    if (driver.profilePictureUrl) {
+      document.getElementById('driver-photo').src = driver.profilePictureUrl;
+    }
+    
+    // Show driver details panel
+    document.getElementById('driver-panel').classList.remove('hidden');
+  }
+
+  onNoDriversFound(data) {
+    this.stopSearchAnimation();
+    
+    document.getElementById('status').textContent = 'No drivers available';
+    document.getElementById('error-message').textContent = 
+      'Sorry, no drivers are available at the moment. Please try again.';
+    document.getElementById('retry-button').classList.remove('hidden');
+  }
+
+  onArrivingStarted(data) {
+    document.getElementById('status').textContent = 'Driver is on the way';
+    this.startTrackingDriver();
+  }
+
+  onDriverEnRoute(data) {
+    if (data.etaMinutes !== null) {
+      document.getElementById('eta').textContent = `${data.etaMinutes} min`;
+    }
+    
+    if (data.driverPosition) {
+      this.updateDriverMarker(data.driverPosition);
+    }
+  }
+
+  onDriverArrived(data) {
+    document.getElementById('status').textContent = 'Driver has arrived!';
+    this.showNotification('Your driver is here!', 'Please head to the pickup location');
+    this.playSound('arrival.mp3');
+  }
+
+  onTripStarted(data) {
+    document.getElementById('status').textContent = 'Trip in progress';
+    this.showRouteToDestination();
+  }
+
+  onTripCompleted(data) {
+    document.getElementById('status').textContent = 'Trip completed';
+    document.getElementById('final-fare').textContent = 
+      `${data.fareTotal} ${data.currency}`;
+    
+    // Show rating prompt
+    this.showRatingDialog(data.tripId);
+    
+    this.currentTrip = null;
+  }
+
+  onDisconnect(reason) {
+    if (reason === 'io server disconnect' && this.currentTrip) {
+      // Server disconnected during active trip - try to reconnect
+      console.log('Reconnecting...');
+      this.socket.connect();
+    }
+  }
+
+  startSearchAnimation() {
+    // Implement search animation
+  }
+
+  stopSearchAnimation() {
+    // Stop search animation
+  }
+
+  startTrackingDriver() {
+    // Initialize map tracking
+  }
+
+  updateDriverMarker(position) {
+    // Update driver marker on map
+  }
+
+  showRouteToDestination() {
+    // Show route on map
+  }
+
+  showNotification(title, message) {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(title, { body: message });
+    }
+  }
+
+  playSound(filename) {
+    const audio = new Audio(`/sounds/${filename}`);
+    audio.play();
+  }
+
+  showRatingDialog(tripId) {
+    // Show driver rating dialog
+  }
+
+  disconnect() {
+    this.socket.disconnect();
+  }
+}
+
+// Usage
+const tripClient = new PassengerTripClient(accessToken);
+
+// Request notification permission
+if ('Notification' in window && Notification.permission === 'default') {
+  Notification.requestPermission();
+}
+```
+
+## Server Implementation
+
+The server emits events through the `TripRealtimePublisher`:
+
+```typescript
+// From trip-realtime.publisher.ts
+
+// Emit to passenger's room
+this.emitTo(
+  '/passengers',
+  Rooms.passenger(passengerId),
+  'trip:requested',
+  payload,
+);
+
+// Also notify admin
+this.emitTo('/admin', Rooms.trip(tripId), 'trip:requested', payload);
+```
+
+## Best Practices
+
+### Connection Management
+
+- Maintain connection throughout the entire trip lifecycle
+- Reconnect automatically if connection drops during active trip
+- Show connection status indicator to user
+
+### UI Updates
+
+- Update trip status immediately on event receipt
+- Show loading states during transitions
+- Provide clear feedback for each trip phase
+
+### Notifications
+
+- Request notification permission on first trip
+- Send push notifications for critical events (driver arrived, trip completed)
+- Play sounds for important updates
+
+### Error Handling
+
+```javascript
+passengerSocket.on('connect_error', (error) => {
+  console.error('Connection error:', error.message);
+  
+  if (currentTrip) {
+    // Show connection issue warning during active trip
+    showConnectionWarning();
+  }
+});
+
+passengerSocket.on('disconnect', (reason) => {
+  if (reason === 'io server disconnect' && currentTrip) {
+    // Server forced disconnect - may be session issue
+    // Try to reconnect or refresh auth
+  }
+});
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Admin Events" icon="gauge-high" href="/websockets/admin">
+    Administrative monitoring and dashboards
+  </Card>
+  <Card title="Driver Availability" icon="location-dot" href="/websockets/driver-availability">
+    Driver status and location events
+  </Card>
+</CardGroup>

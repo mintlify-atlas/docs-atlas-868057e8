@@ -1,0 +1,134 @@
+---
+title: Introduction
+description: Welcome to Rodando Backend - A real-time ride-hailing platform built with NestJS
+---
+
+## What is Rodando Backend?
+
+Rodando Backend is a production-ready ride-hailing platform built with NestJS and TypeScript. It provides a complete backend solution for managing trips, driver availability, real-time communications, and payments in a ride-sharing ecosystem.
+
+The platform handles the complex orchestration of matching passengers with drivers, tracking trips in real-time, and managing the complete lifecycle of ride requests from creation to completion.
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Real-time Communications" icon="wifi">
+    WebSocket-based architecture for instant driver-passenger matching and trip updates
+  </Card>
+  <Card title="Trip Management" icon="route">
+    Complete trip lifecycle from request to completion with state machine pattern
+  </Card>
+  <Card title="Driver Availability" icon="car">
+    Geohash-based driver tracking and matching with configurable radius search
+  </Card>
+  <Card title="Authentication & Security" icon="shield">
+    JWT-based auth with refresh tokens, role-based access control, and session management
+  </Card>
+  <Card title="Swagger Documentation" icon="book">
+    Auto-generated API documentation with multiple endpoint groups
+  </Card>
+  <Card title="Event-Driven Architecture" icon="bolt">
+    Decoupled modules using EventEmitter2 for scalable business logic
+  </Card>
+</CardGroup>
+
+## Core Modules
+
+The backend is organized into focused, modular components:
+
+### Trip Management
+- Trip request and estimation
+- Driver assignment with automatic retry logic
+- Trip status tracking (pending → assigning → assigned → arriving → in_progress → completed)
+- Fare calculation with configurable pricing policies
+
+### Driver Availability
+- Real-time driver location tracking
+- Geohash-based proximity search
+- Online/offline status management with TTL-based expiry
+- Driver pooling for efficient matching
+
+### Authentication & Authorization
+- Multi-platform support (web with cookies, mobile with tokens)
+- JWT access and refresh token flow
+- Session management and device tracking
+- Role-based permissions (passenger, driver, admin)
+
+### Real-time Communication
+- WebSocket gateways for drivers, passengers, and admins
+- Event-driven notifications
+- Room-based broadcasting for trip updates
+- Auto-reconnection and state synchronization
+
+### Settings & Configuration
+- Price policies per vehicle type and service class
+- Zone management for service areas
+- City and region configuration
+- Vehicle types, categories, and service classes
+
+## Use Cases
+
+Rodando Backend is designed for:
+
+**Ride-Hailing Services**
+- Launch a Uber-like platform with real-time matching
+- Support multiple vehicle types (economy, premium, etc.)
+- Handle high-volume trip requests with efficient driver pooling
+
+**Fleet Management**
+- Track driver locations and availability
+- Monitor trip metrics and driver performance
+- Manage driver balances and cash collections
+
+**Corporate Transportation**
+- Provide dedicated ride services for organizations
+- Custom pricing policies and zones
+- Admin dashboards for monitoring operations
+
+**Food Delivery & Logistics**
+- Adapt the trip model for delivery services
+- Real-time tracking of delivery personnel
+- Efficient route matching and optimization
+
+## Technology Stack
+
+<Note>
+  Built with modern, production-tested technologies for scalability and maintainability
+</Note>
+
+- **Framework**: NestJS 11.x with TypeScript
+- **Database**: PostgreSQL with TypeORM
+- **Real-time**: Socket.IO with custom adapters
+- **Authentication**: JWT with Passport.js
+- **Validation**: class-validator and class-transformer
+- **API Documentation**: Swagger/OpenAPI
+- **Event Handling**: EventEmitter2 with wildcards
+- **Scheduling**: @nestjs/schedule for cron jobs
+
+## Architecture Highlights
+
+### Modular Design
+Each feature is encapsulated in its own module with clear boundaries, making the codebase maintainable and testable.
+
+### Event-Driven
+Loose coupling between modules using domain events (e.g., `trip.created`, `driver.assigned`) enables flexible business logic.
+
+### Real-time First
+WebSocket gateways provide instant updates to connected clients, with graceful fallbacks for disconnections.
+
+### Type Safety
+Full TypeScript coverage with DTOs, entities, and interfaces ensures compile-time safety and better developer experience.
+
+### Database-Driven Configuration
+Price policies, zones, and settings stored in database allow runtime configuration without code changes.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Get your API running locally in minutes
+  </Card>
+  <Card title="Architecture" icon="sitemap" href="/architecture">
+    Understand the system design and module structure
+  </Card>
+</CardGroup>

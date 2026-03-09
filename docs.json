@@ -1,122 +1,145 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Rodando Backend",
+  "theme": "aspen",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#de2850",
+    "light": "#e08cac",
+    "dark": "#de2850"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "https://media.brand.dev/29c481de-2859-4cec-b430-eb582a269988.jpg",
+  "logo": {
+    "light": "https://media.brand.dev/a2265058-0fff-4f5e-87e7-1eef9924084b.png",
+    "dark": "https://media.brand.dev/a2265058-0fff-4f5e-87e7-1eef9924084b.png"
+  },
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/RodandoConfort/rodando-backend"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/RodandoConfort/rodando-backend"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Get Started",
             "pages": [
-              "index",
+              "introduction",
               "quickstart",
-              "development"
+              "architecture"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Concepts",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "concepts/authentication",
+              "concepts/trip-lifecycle",
+              "concepts/driver-matching",
+              "concepts/real-time-communication"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Guides",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
-            ]
-          },
-          {
-            "group": "AI tools",
-            "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "guides/setup",
+              "guides/configuration",
+              "guides/database-setup",
+              "guides/websockets"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "API Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Authentication",
             "pages": [
-              "api-reference/introduction"
+              "api/auth/login",
+              "api/auth/refresh",
+              "api/auth/logout"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Trip Management",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api/trips/create-trip",
+              "api/trips/estimate-trip",
+              "api/trips/get-trip",
+              "api/trips/list-trips",
+              "api/trips/trip-lifecycle"
+            ]
+          },
+          {
+            "group": "Driver Management",
+            "pages": [
+              "api/drivers/driver-profiles",
+              "api/drivers/driver-availability",
+              "api/drivers/driver-balance"
+            ]
+          },
+          {
+            "group": "User Management",
+            "pages": [
+              "api/users/overview"
+            ]
+          },
+          {
+            "group": "Vehicles",
+            "pages": [
+              "api/vehicles/vehicle-management",
+              "api/vehicles/vehicle-types",
+              "api/vehicles/vehicle-categories",
+              "api/vehicles/service-classes"
+            ]
+          },
+          {
+            "group": "Orders & Payments",
+            "pages": [
+              "api/orders/orders",
+              "api/orders/transactions",
+              "api/orders/cash-collections",
+              "api/orders/prepaid-plans"
+            ]
+          },
+          {
+            "group": "Settings",
+            "pages": [
+              "api/settings/cities",
+              "api/settings/zones",
+              "api/settings/price-policies"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "WebSocket Events",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "websockets/overview",
+              "websockets/connection"
+            ]
+          },
+          {
+            "group": "Gateways",
+            "pages": [
+              "websockets/driver-auth",
+              "websockets/driver-availability",
+              "websockets/passenger",
+              "websockets/admin"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

@@ -1,0 +1,228 @@
+---
+title: 'List Trips'
+api: 'GET /trips'
+description: 'Retrieve a paginated list of trips with optional filtering'
+---
+
+Retrieves a paginated list of trips with support for filtering by passenger, driver, vehicle, status, payment mode, and date ranges.
+
+<Note>
+  This endpoint is public and does not require authentication.
+</Note>
+
+## Query Parameters
+
+### Pagination
+
+<ParamField query="page" type="number" default="1">
+  Page number (minimum: 1)
+</ParamField>
+
+<ParamField query="limit" type="number" default="10">
+  Number of items per page (minimum: 1, maximum: 100)
+</ParamField>
+
+### Filters
+
+<ParamField query="passengerId" type="string">
+  Filter by passenger UUID
+</ParamField>
+
+<ParamField query="driverId" type="string">
+  Filter by driver UUID
+</ParamField>
+
+<ParamField query="vehicleId" type="string">
+  Filter by vehicle UUID
+</ParamField>
+
+<ParamField query="status" type="enum">
+  Filter by trip status
+  
+  **Options:** `pending`, `assigning`, `accepted`, `arriving`, `in_progress`, `completed`, `cancelled`, `no_drivers_found`
+</ParamField>
+
+<ParamField query="paymentMode" type="enum">
+  Filter by payment method
+  
+  **Options:** `cash`, `card`, `wallet`
+</ParamField>
+
+<ParamField query="vehicleCategoryId" type="string">
+  Filter by requested vehicle category UUID
+</ParamField>
+
+<ParamField query="serviceClassId" type="string">
+  Filter by requested service class UUID
+</ParamField>
+
+### Date Ranges
+
+<ParamField query="requestedFrom" type="string">
+  Filter trips requested from this date (ISO 8601 format)
+  
+  Example: `2025-09-01T00:00:00Z`
+</ParamField>
+
+<ParamField query="requestedTo" type="string">
+  Filter trips requested until this date (ISO 8601 format)
+  
+  Example: `2025-09-30T23:59:59Z`
+</ParamField>
+
+<ParamField query="completedFrom" type="string">
+  Filter trips completed from this date (ISO 8601 format)
+</ParamField>
+
+<ParamField query="completedTo" type="string">
+  Filter trips completed until this date (ISO 8601 format)
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the request was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message
+</ResponseField>
+
+<ResponseField name="data" type="array">
+  Array of trip objects (see [Get Trip](/api/trips/get-trip) for full structure)
+</ResponseField>
+
+<ResponseField name="meta" type="object">
+  Pagination metadata
+  
+  <ResponseField name="meta.page" type="number">
+    Current page number
+  </ResponseField>
+  
+  <ResponseField name="meta.limit" type="number">
+    Items per page
+  </ResponseField>
+  
+  <ResponseField name="meta.total" type="number">
+    Total number of items
+  </ResponseField>
+  
+  <ResponseField name="meta.totalPages" type="number">
+    Total number of pages
+  </ResponseField>
+  
+  <ResponseField name="meta.hasNext" type="boolean">
+    Whether there is a next page
+  </ResponseField>
+  
+  <ResponseField name="meta.hasPrev" type="boolean">
+    Whether there is a previous page
+  </ResponseField>
+  
+  <ResponseField name="meta.nextPage" type="number">
+    Next page number (null if no next page)
+  </ResponseField>
+  
+  <ResponseField name="meta.prevPage" type="number">
+    Previous page number (null if no previous page)
+  </ResponseField>
+</ResponseField>
+
+## Examples
+
+### List all trips (paginated)
+
+```bash
+curl https://api.rodando.com/trips?page=1&limit=20
+```
+
+### Filter by passenger
+
+```bash
+curl https://api.rodando.com/trips?passengerId=123e4567-e89b-12d3-a456-426614174000
+```
+
+### Filter by status
+
+```bash
+curl https://api.rodando.com/trips?status=completed&page=1&limit=50
+```
+
+### Filter by date range
+
+```bash
+curl "https://api.rodando.com/trips?requestedFrom=2025-09-01T00:00:00Z&requestedTo=2025-09-30T23:59:59Z"
+```
+
+### Multiple filters
+
+```bash
+curl "https://api.rodando.com/trips?driverId=driver-uuid-456&status=completed&paymentMode=card&page=1&limit=25"
+```
+
+<ResponseExample>
+```json
+{
+  "success": true,
+  "message": "Trips retrieved",
+  "data": [
+    {
+      "id": "trip-uuid-1",
+      "passengerId": "passenger-uuid-123",
+      "passengerName": "John Doe",
+      "driverId": "driver-uuid-456",
+      "currentStatus": "completed",
+      "paymentMode": "card",
+      "pickupPoint": {
+        "lat": 40.7580,
+        "lng": -73.9855
+      },
+      "pickupAddress": "Times Square, New York, NY",
+      "fareEstimatedTotal": 15.50,
+      "fareTotal": 17.25,
+      "requestedAt": "2025-09-20T14:30:00Z",
+      "completedAt": "2025-09-20T15:05:00Z",
+      "createdAt": "2025-09-20T14:30:00Z",
+      "updatedAt": "2025-09-20T15:05:00Z"
+    },
+    {
+      "id": "trip-uuid-2",
+      "passengerId": "passenger-uuid-789",
+      "passengerName": "Jane Smith",
+      "driverId": "driver-uuid-456",
+      "currentStatus": "in_progress",
+      "paymentMode": "cash",
+      "pickupPoint": {
+        "lat": 40.7614,
+        "lng": -73.9776
+      },
+      "pickupAddress": "Grand Central Terminal, New York, NY",
+      "fareEstimatedTotal": 22.00,
+      "fareTotal": null,
+      "requestedAt": "2025-09-20T15:15:00Z",
+      "completedAt": null,
+      "createdAt": "2025-09-20T15:15:00Z",
+      "updatedAt": "2025-09-20T15:30:00Z"
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "limit": 20,
+    "total": 2,
+    "totalPages": 1,
+    "hasNext": false,
+    "hasPrev": false,
+    "nextPage": null,
+    "prevPage": null
+  }
+}
+```
+</ResponseExample>
+
+## Notes
+
+- All filters are optional and can be combined
+- Date filters use ISO 8601 format
+- Results are ordered by most recent first
+- Maximum limit is 100 items per page
+- Pagination metadata includes helper fields for navigation

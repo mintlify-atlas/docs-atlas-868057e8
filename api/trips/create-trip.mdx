@@ -1,0 +1,247 @@
+---
+title: 'Create Trip'
+api: 'POST /trips'
+description: 'Creates a new trip request in pending status'
+---
+
+Creates a new trip request for a passenger. The trip is initialized in `pending` status and awaits driver assignment through the matching system.
+
+## Request
+
+### Headers
+
+<ParamField header="Idempotency-Key" type="string">
+  Optional idempotency key to prevent duplicate trip creation on retries. Recommended for production use.
+  
+  Example: `req-2025-09-20-001`
+</ParamField>
+
+### Body Parameters
+
+<ParamField body="passengerId" type="string" required>
+  UUID of the passenger requesting the trip
+</ParamField>
+
+<ParamField body="paymentMode" type="enum" required>
+  Payment method for the trip
+  
+  **Options:** `cash`, `card`, `wallet`
+</ParamField>
+
+<ParamField body="pickupPoint" type="object" required>
+  Geographic coordinates of the pickup location
+  
+  <ParamField body="pickupPoint.lat" type="number" required>
+    Latitude (-90 to 90)
+  </ParamField>
+  
+  <ParamField body="pickupPoint.lng" type="number" required>
+    Longitude (-180 to 180)
+  </ParamField>
+</ParamField>
+
+<ParamField body="pickupAddress" type="string">
+  Human-readable pickup address (max 500 characters)
+  
+  Example: `350 5th Ave, New York, NY`
+</ParamField>
+
+<ParamField body="stops" type="array">
+  Array of intermediate stops and/or destination. The server assigns sequence numbers automatically.
+  
+  <ParamField body="stops[].point" type="object" required>
+    Geographic coordinates of the stop
+    
+    <ParamField body="stops[].point.lat" type="number" required>
+      Latitude (-90 to 90)
+    </ParamField>
+    
+    <ParamField body="stops[].point.lng" type="number" required>
+      Longitude (-180 to 180)
+    </ParamField>
+  </ParamField>
+  
+  <ParamField body="stops[].address" type="string">
+    Human-readable address (max 500 characters)
+  </ParamField>
+  
+  <ParamField body="stops[].placeId" type="string">
+    Place identifier (e.g., Google Place ID, max 255 characters)
+  </ParamField>
+  
+  <ParamField body="stops[].notes" type="string">
+    Additional instructions for this stop (max 1000 characters)
+    
+    Example: `Client drops package here`
+  </ParamField>
+  
+  <ParamField body="stops[].seq" type="number">
+    Desired sequence order (server may reassign 1..N)
+  </ParamField>
+  
+  <ParamField body="stops[].plannedArrivalAt" type="string">
+    ISO 8601 timestamp for planned arrival
+    
+    Example: `2025-09-18T15:45:00Z`
+  </ParamField>
+</ParamField>
+
+<ParamField body="vehicleCategoryId" type="string" required>
+  UUID of the requested vehicle category (Auto, Moto, Van, etc.)
+</ParamField>
+
+<ParamField body="serviceClassId" type="string" required>
+  UUID of the requested service class (Standard, Premium, etc.)
+</ParamField>
+
+<ParamField body="idempotencyKey" type="string">
+  Alternative way to specify idempotency key in request body (max 120 characters)
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the request was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  The created trip object
+  
+  <ResponseField name="data.id" type="string">
+    Unique trip identifier (UUID)
+  </ResponseField>
+  
+  <ResponseField name="data.passengerId" type="string">
+    UUID of the passenger
+  </ResponseField>
+  
+  <ResponseField name="data.currentStatus" type="string">
+    Current trip status (will be `pending` for new trips)
+  </ResponseField>
+  
+  <ResponseField name="data.paymentMode" type="string">
+    Payment method: `cash`, `card`, or `wallet`
+  </ResponseField>
+  
+  <ResponseField name="data.pickupPoint" type="object">
+    Pickup location coordinates
+    
+    <ResponseField name="data.pickupPoint.lat" type="number">
+      Latitude
+    </ResponseField>
+    
+    <ResponseField name="data.pickupPoint.lng" type="number">
+      Longitude
+    </ResponseField>
+  </ResponseField>
+  
+  <ResponseField name="data.pickupAddress" type="string">
+    Pickup address if provided
+  </ResponseField>
+  
+  <ResponseField name="data.stops" type="array">
+    Array of trip stops with assigned sequence numbers
+  </ResponseField>
+  
+  <ResponseField name="data.requestedVehicleCategoryId" type="string">
+    Requested vehicle category UUID
+  </ResponseField>
+  
+  <ResponseField name="data.requestedServiceClassId" type="string">
+    Requested service class UUID
+  </ResponseField>
+  
+  <ResponseField name="data.fareEstimatedTotal" type="number">
+    Estimated total fare
+  </ResponseField>
+  
+  <ResponseField name="data.requestedAt" type="string">
+    ISO 8601 timestamp when trip was requested
+  </ResponseField>
+  
+  <ResponseField name="data.createdAt" type="string">
+    ISO 8601 timestamp of creation
+  </ResponseField>
+  
+  <ResponseField name="data.updatedAt" type="string">
+    ISO 8601 timestamp of last update
+  </ResponseField>
+</ResponseField>
+
+## Example
+
+```bash
+curl -X POST https://api.rodando.com/trips \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: req-2025-09-20-001" \
+  -d '{
+    "passengerId": "123e4567-e89b-12d3-a456-426614174000",
+    "paymentMode": "card",
+    "pickupPoint": {
+      "lat": 40.7580,
+      "lng": -73.9855
+    },
+    "pickupAddress": "Times Square, New York, NY",
+    "stops": [
+      {
+        "point": {
+          "lat": 40.7614,
+          "lng": -73.9776
+        },
+        "address": "Grand Central Terminal, New York, NY",
+        "notes": "Wait at main entrance"
+      }
+    ],
+    "vehicleCategoryId": "cat-uuid-auto",
+    "serviceClassId": "class-uuid-standard"
+  }'
+```
+
+<ResponseExample>
+```json
+{
+  "success": true,
+  "message": "Trip created successfully",
+  "data": {
+    "id": "trip-uuid-123",
+    "passengerId": "123e4567-e89b-12d3-a456-426614174000",
+    "currentStatus": "pending",
+    "paymentMode": "card",
+    "pickupPoint": {
+      "lat": 40.7580,
+      "lng": -73.9855
+    },
+    "pickupAddress": "Times Square, New York, NY",
+    "stops": [
+      {
+        "seq": 1,
+        "point": {
+          "lat": 40.7614,
+          "lng": -73.9776
+        },
+        "address": "Grand Central Terminal, New York, NY",
+        "notes": "Wait at main entrance"
+      }
+    ],
+    "requestedVehicleCategoryId": "cat-uuid-auto",
+    "requestedServiceClassId": "class-uuid-standard",
+    "fareEstimatedTotal": 15.50,
+    "requestedAt": "2025-09-20T14:30:00Z",
+    "createdAt": "2025-09-20T14:30:00Z",
+    "updatedAt": "2025-09-20T14:30:00Z"
+  }
+}
+```
+</ResponseExample>
+
+## Error Responses
+
+### 400 Bad Request
+Validation errors or invalid parameters
+
+### 409 Conflict
+Duplicate request detected (idempotency key already used)

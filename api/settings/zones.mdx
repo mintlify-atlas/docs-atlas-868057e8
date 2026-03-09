@@ -1,0 +1,216 @@
+---
+title: Zones
+description: Manage zones within cities
+---
+
+## List Zones
+
+<api method="GET" endpoint="/zones" auth="public">
+  Get a paginated list of zones
+</api>
+
+### Query Parameters
+
+<ParamField query="page" type="integer" default="1">
+  Page number (minimum: 1)
+</ParamField>
+
+<ParamField query="limit" type="integer" default="10">
+  Items per page (minimum: 1, maximum: 100)
+</ParamField>
+
+<ParamField query="cityId" type="string">
+  Filter zones by city UUID
+</ParamField>
+
+<ParamField query="q" type="string">
+  Free text search by name (case-insensitive)
+</ParamField>
+
+<ParamField query="name" type="string">
+  Filter by exact name
+</ParamField>
+
+<ParamField query="kind" type="string">
+  Filter by zone kind/type
+</ParamField>
+
+<ParamField query="priorityGte" type="integer">
+  Filter zones with priority greater than or equal to this value
+</ParamField>
+
+<ParamField query="active" type="boolean">
+  Filter by active status
+</ParamField>
+
+### Response
+
+Returns a paginated list of zones with metadata.
+
+---
+
+## Get Zone by ID
+
+<api method="GET" endpoint="/zones/{id}" auth="public">
+  Get detailed information about a specific zone
+</api>
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Zone UUID
+</ParamField>
+
+### Response
+
+Returns the zone details including geometry.
+
+---
+
+## Create Zone
+
+<api method="POST" endpoint="/zones" auth="public">
+  Create a new zone within a city
+</api>
+
+### Body Parameters
+
+<ParamField body="cityId" type="string" required>
+  UUID of the city this zone belongs to
+</ParamField>
+
+<ParamField body="name" type="string" required>
+  Zone name (max 120 characters)
+</ParamField>
+
+<ParamField body="kind" type="string">
+  Zone type or category (max 60 characters)
+</ParamField>
+
+<ParamField body="priority" type="integer" default="0">
+  Zone priority (0-100000). Higher priority zones take precedence
+</ParamField>
+
+<ParamField body="geom" type="object" required>
+  GeoJSON MultiPolygon representing the zone boundaries
+</ParamField>
+
+<ParamField body="active" type="boolean" default="true">
+  Whether the zone is active
+</ParamField>
+
+### Response
+
+<ResponseField name="status" type="string">
+  Response status
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  The created zone object
+</ResponseField>
+
+### Error Responses
+
+- **409 Conflict**: Zone already exists in this city (cityId + name combination)
+- **400 Bad Request**: Validation error
+
+---
+
+## Update Zone
+
+<api method="PATCH" endpoint="/zones/{id}" auth="public">
+  Update a zone (partial update)
+</api>
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Zone UUID
+</ParamField>
+
+### Body Parameters
+
+All parameters are optional (partial update):
+
+<ParamField body="cityId" type="string">
+  UUID of the city this zone belongs to
+</ParamField>
+
+<ParamField body="name" type="string">
+  Zone name (max 120 characters)
+</ParamField>
+
+<ParamField body="kind" type="string">
+  Zone type or category
+</ParamField>
+
+<ParamField body="priority" type="integer">
+  Zone priority (0-100000)
+</ParamField>
+
+<ParamField body="geom" type="object">
+  GeoJSON MultiPolygon representing the zone boundaries
+</ParamField>
+
+<ParamField body="active" type="boolean">
+  Whether the zone is active
+</ParamField>
+
+### Response
+
+Returns the updated zone object.
+
+### Error Responses
+
+- **409 Conflict**: Another zone with that name already exists in this city
+- **400 Bad Request**: Validation error
+
+---
+
+## Set Active Status
+
+<api method="PATCH" endpoint="/zones/{id}/active" auth="required">
+  Activate or deactivate a zone
+</api>
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Zone UUID
+</ParamField>
+
+### Body Parameters
+
+<ParamField body="active" type="boolean" required>
+  Set to true to activate, false to deactivate
+</ParamField>
+
+### Response
+
+Returns the updated zone with new active status.
+
+---
+
+## Resolve Zone by Point
+
+<api method="GET" endpoint="/zones/resolve/by-point" auth="public">
+  Find the best matching zone for a geographic point within a city
+</api>
+
+### Query Parameters
+
+<ParamField query="cityId" type="string" required>
+  UUID of the city to search within
+</ParamField>
+
+<ParamField query="lat" type="number" required>
+  Latitude coordinate
+</ParamField>
+
+<ParamField query="lng" type="number" required>
+  Longitude coordinate
+</ParamField>
+
+### Response
+
+Returns the best matching zone containing the point (based on priority), or null if no zone is found.

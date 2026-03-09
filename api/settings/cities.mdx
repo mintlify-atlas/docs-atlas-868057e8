@@ -1,0 +1,200 @@
+---
+title: Cities
+description: Manage cities in the system
+---
+
+## List Cities
+
+<api method="GET" endpoint="/cities" auth="public">
+  Get a paginated list of cities
+</api>
+
+### Query Parameters
+
+<ParamField query="page" type="integer" default="1">
+  Page number (minimum: 1)
+</ParamField>
+
+<ParamField query="limit" type="integer" default="10">
+  Items per page (minimum: 1, maximum: 100)
+</ParamField>
+
+<ParamField query="q" type="string">
+  Free text search by name (case-insensitive)
+</ParamField>
+
+<ParamField query="name" type="string">
+  Filter by exact name
+</ParamField>
+
+<ParamField query="countryCode" type="string">
+  Filter by ISO-3166-1 alpha-2 country code (e.g., MX, CO)
+</ParamField>
+
+<ParamField query="timezone" type="string">
+  Filter by IANA timezone (e.g., America/Mexico_City)
+</ParamField>
+
+<ParamField query="active" type="boolean">
+  Filter by active status
+</ParamField>
+
+### Response
+
+Returns a paginated list of cities with metadata.
+
+---
+
+## Get City by ID
+
+<api method="GET" endpoint="/cities/{id}" auth="public">
+  Get detailed information about a specific city
+</api>
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  City UUID
+</ParamField>
+
+### Response
+
+Returns the city details including geometry if available.
+
+---
+
+## Create City
+
+<api method="POST" endpoint="/cities" auth="public">
+  Create a new city
+</api>
+
+### Body Parameters
+
+<ParamField body="name" type="string" required>
+  City name (max 120 characters)
+</ParamField>
+
+<ParamField body="countryCode" type="string" required>
+  ISO-3166-1 alpha-2 country code (e.g., MX, CO)
+</ParamField>
+
+<ParamField body="timezone" type="string" required>
+  Valid IANA timezone (e.g., America/Mexico_City)
+</ParamField>
+
+<ParamField body="geom" type="object">
+  GeoJSON MultiPolygon representing the city boundaries
+</ParamField>
+
+<ParamField body="active" type="boolean" default="true">
+  Whether the city is active
+</ParamField>
+
+### Response
+
+<ResponseField name="status" type="string">
+  Response status
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  The created city object
+</ResponseField>
+
+### Error Responses
+
+- **409 Conflict**: City already exists (name + countryCode combination)
+- **400 Bad Request**: Validation error
+
+---
+
+## Update City
+
+<api method="PATCH" endpoint="/cities/{id}" auth="public">
+  Update a city (partial update)
+</api>
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  City UUID
+</ParamField>
+
+### Body Parameters
+
+All parameters are optional (partial update):
+
+<ParamField body="name" type="string">
+  City name (max 120 characters)
+</ParamField>
+
+<ParamField body="countryCode" type="string">
+  ISO-3166-1 alpha-2 country code
+</ParamField>
+
+<ParamField body="timezone" type="string">
+  Valid IANA timezone
+</ParamField>
+
+<ParamField body="geom" type="object">
+  GeoJSON MultiPolygon representing the city boundaries
+</ParamField>
+
+<ParamField body="active" type="boolean">
+  Whether the city is active
+</ParamField>
+
+### Response
+
+Returns the updated city object.
+
+### Error Responses
+
+- **409 Conflict**: Another city already exists with this name + countryCode
+- **400 Bad Request**: Validation error
+
+---
+
+## Set Active Status
+
+<api method="PATCH" endpoint="/cities/{id}/active" auth="required">
+  Activate or deactivate a city
+</api>
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  City UUID
+</ParamField>
+
+### Body Parameters
+
+<ParamField body="active" type="boolean" required>
+  Set to true to activate, false to deactivate
+</ParamField>
+
+### Response
+
+Returns the updated city with new active status.
+
+---
+
+## Resolve City by Point
+
+<api method="GET" endpoint="/cities/resolve/by-point" auth="public">
+  Find the city containing a geographic point
+</api>
+
+### Query Parameters
+
+<ParamField query="lat" type="number" required>
+  Latitude coordinate
+</ParamField>
+
+<ParamField query="lng" type="number" required>
+  Longitude coordinate
+</ParamField>
+
+### Response
+
+Returns the city containing the point, or null if no city is found.

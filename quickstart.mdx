@@ -1,80 +1,404 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Get the Rodando Backend API running locally in minutes
 ---
 
-## Get started in three steps
+## Prerequisites
 
-Get your documentation site running locally and make your first customization.
+Before you begin, ensure you have the following installed:
 
-### Step 1: Set up your local environment
+- **Node.js** 18+ and npm
+- **PostgreSQL** 14+ running locally or remotely
+- **Git** for cloning the repository
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+<Warning>
+  Make sure PostgreSQL is running and accessible before starting the application
+</Warning>
+
+## Installation
+
+<Steps>
+  <Step title="Clone the Repository">
+    Clone the source code to your local machine:
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
+    ```bash
+    git clone <repository-url>
+    cd nest-uber-app-backend
+    ```
+  </Step>
+
+  <Step title="Install Dependencies">
+    Install all required npm packages:
     
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
+    ```bash
+    npm install
+    ```
     
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    This will install NestJS, TypeORM, Socket.IO, and all other dependencies defined in `package.json`.
+  </Step>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+  <Step title="Configure Environment Variables">
+    Copy the example environment file and configure your settings:
+    
+    ```bash
+    cp .env.example .env
+    ```
+    
+    Edit `.env` with your database credentials and configuration:
+    
+    ```bash .env
+    # Application
+    PORT=3000
+    NODE_ENV=development
+    CORS_ORIGINS=http://localhost:8100
+    
+    # Database
+    DB_HOST=localhost
+    DB_PORT=5432
+    DB_USER=postgres
+    DB_PASSWORD=your_password
+    DB_NAME=rodando
+    DB_SYNCHRONIZE=true
+    DB_LOGGING=true
+    
+    # JWT Configuration
+    JWT_ACCESS_SECRET=your-access-secret-key-here
+    JWT_ACCESS_EXPIRES_IN=15m
+    JWT_REFRESH_SECRET=your-refresh-secret-key-here
+    JWT_REFRESH_EXPIRES_IN=7d
+    JWT_ISSUER=nest-uber-app-backend
+    JWT_AUDIENCE=nest-uber-app-frontend
+    
+    # Bcrypt
+    BCRYPT_SALT_ROUNDS=12
+    
+    # Driver Availability
+    DA_PRESENCE_TTL_SEC=120
+    DA_SWEEP_BATCH=1000
+    
+    # Swagger Documentation
+    SWAGGER_ENABLED=true
+    SWAGGER_TITLE_API=Rodando Backend API
+    SWAGGER_VERSION_API=1.0
+    ```
+    
+    <Note>
+      Generate secure random strings for `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` in production:
+      ```bash
+      node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+      ```
+    </Note>
+  </Step>
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+  <Step title="Database Setup">
+    The application will automatically create the database if it doesn't exist (thanks to `DatabaseInitService`).
+    
+    If you have `DB_SYNCHRONIZE=true`, TypeORM will auto-create tables on startup.
+    
+    <Warning>
+      Set `DB_SYNCHRONIZE=false` in production and use migrations instead
+    </Warning>
+  </Step>
 
-### Step 3: Go live
+  <Step title="Start the Development Server">
+    Run the application in development mode with hot-reload:
+    
+    ```bash
+    npm run start:dev
+    ```
+    
+    You should see output like:
+    
+    ```
+    [Nest] 12345  - 03/09/2026, 10:30:00 AM     LOG [NestFactory] Starting Nest application...
+    [Nest] 12345  - 03/09/2026, 10:30:01 AM     LOG [InstanceLoader] DatabaseModule dependencies initialized
+    [Nest] 12345  - 03/09/2026, 10:30:02 AM     LOG [RoutesResolver] AppController {/api}:
+    [Nest] 12345  - 03/09/2026, 10:30:02 AM     LOG [RouterExplorer] Mapped {/api/auth/login, POST} route
+    [Nest] 12345  - 03/09/2026, 10:30:02 AM     LOG [NestApplication] Nest application successfully started
+    ```
+  </Step>
+</Steps>
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+## Verify Installation
 
-## Next steps
+Once the server is running, verify everything is working:
 
-Now that you have your docs running, explore these key features:
+### Check API Health
 
-<CardGroup cols={2}>
+The API runs on port 3000 by default with `/api` prefix:
 
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
+```bash
+curl http://localhost:3000/api
+```
 
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
+### Access Swagger Documentation
 
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
+Open your browser and navigate to:
 
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
+```
+http://localhost:3000/api
+```
 
-</CardGroup>
+You'll see the interactive Swagger UI with all available endpoints organized by module.
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  The API documentation is auto-generated from controller decorators and DTOs
 </Note>
+
+## Make Your First API Call
+
+Let's create a trip estimate to test the API:
+
+<Steps>
+  <Step title="Estimate a Trip">
+    Send a POST request to estimate trip fare and duration:
+    
+    ```bash
+    curl -X POST http://localhost:3000/api/trips/estimate \
+      -H "Content-Type: application/json" \
+      -d '{
+        "pickupLocation": {
+          "latitude": 40.7128,
+          "longitude": -74.0060,
+          "address": "New York, NY"
+        },
+        "dropoffLocation": {
+          "latitude": 40.7580,
+          "longitude": -73.9855,
+          "address": "Times Square, NY"
+        },
+        "vehicleTypeId": "00000000-0000-0000-0000-000000000001"
+      }'
+    ```
+    
+    Expected response:
+    
+    ```json
+    {
+      "success": true,
+      "message": "Estimate computed",
+      "data": {
+        "estimatedDistance": 5.2,
+        "estimatedDuration": 15,
+        "estimatedFare": 18.50,
+        "fareBreakdown": {
+          "baseFare": 3.50,
+          "distanceFare": 12.00,
+          "timeFare": 3.00
+        }
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Create a User Account">
+    Register a new passenger or driver:
+    
+    ```bash
+    curl -X POST http://localhost:3000/api/users/register \
+      -H "Content-Type: application/json" \
+      -d '{
+        "email": "user@example.com",
+        "password": "SecurePass123!",
+        "firstName": "John",
+        "lastName": "Doe",
+        "phoneNumber": "+1234567890",
+        "role": "passenger"
+      }'
+    ```
+  </Step>
+
+  <Step title="Login and Get Access Token">
+    Authenticate to receive JWT tokens:
+    
+    ```bash
+    curl -X POST http://localhost:3000/api/auth/login \
+      -H "Content-Type: application/json" \
+      -d '{
+        "email": "user@example.com",
+        "password": "SecurePass123!"
+      }'
+    ```
+    
+    Response:
+    
+    ```json
+    {
+      "success": true,
+      "message": "Login successful",
+      "data": {
+        "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+        "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+        "sessionType": "mobile",
+        "accessTokenExpiresAt": "2026-03-09T11:45:00Z",
+        "refreshTokenExpiresAt": "2026-03-16T10:30:00Z"
+      }
+    }
+    ```
+    
+    <Note>
+      Save the `accessToken` to use in subsequent authenticated requests
+    </Note>
+  </Step>
+
+  <Step title="Make an Authenticated Request">
+    Use the access token to request protected resources:
+    
+    ```bash
+    curl -X GET http://localhost:3000/api/trips \
+      -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+    ```
+  </Step>
+</Steps>
+
+## Development Commands
+
+Here are useful commands for development:
+
+<CodeGroup>
+```bash Development
+# Start with hot-reload
+npm run start:dev
+
+# Start with debug mode
+npm run start:debug
+```
+
+```bash Production
+# Build for production
+npm run build
+
+# Start production server
+npm run start:prod
+```
+
+```bash Testing
+# Run unit tests
+npm run test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Generate coverage report
+npm run test:cov
+```
+
+```bash Code Quality
+# Lint TypeScript files
+npm run lint
+
+# Fix linting issues
+npm run lint:fix
+
+# Format code with Prettier
+npm run format
+```
+
+```bash WebSocket Testing
+# Test WebSocket connections
+npm run ws:test
+
+# Test driver availability WebSocket
+npm run ws:test:da:driver
+
+# Test admin WebSocket
+npm run ws:test:da:admin
+
+# Test trip passenger WebSocket
+npm run ws:test:trip:passenger
+```
+</CodeGroup>
+
+## WebSocket Connection
+
+The backend provides real-time updates via Socket.IO:
+
+```javascript
+const io = require('socket.io-client');
+
+// Connect as a driver
+const socket = io('http://localhost:3000', {
+  auth: {
+    token: 'YOUR_ACCESS_TOKEN'
+  }
+});
+
+socket.on('connect', () => {
+  console.log('Connected to server');
+});
+
+// Listen for trip assignments
+socket.on('trip.assignment.offer', (data) => {
+  console.log('New trip offer:', data);
+});
+```
+
+<Note>
+  WebSocket scripts are available in the `scripts/` directory for testing real-time features
+</Note>
+
+## Common Issues
+
+<AccordionGroup>
+  <Accordion title="Database connection failed">
+    **Error**: `Error: connect ECONNREFUSED 127.0.0.1:5432`
+    
+    **Solution**: 
+    - Ensure PostgreSQL is running: `sudo service postgresql start`
+    - Check DB_HOST, DB_PORT, DB_USER, and DB_PASSWORD in `.env`
+    - Verify the user has permissions to create databases
+  </Accordion>
+
+  <Accordion title="Port already in use">
+    **Error**: `Error: listen EADDRINUSE: address already in use :::3000`
+    
+    **Solution**:
+    - Change the PORT in `.env` to a different value (e.g., 3001)
+    - Or kill the process using port 3000:
+      ```bash
+      lsof -ti:3000 | xargs kill -9
+      ```
+  </Accordion>
+
+  <Accordion title="JWT token errors">
+    **Error**: `JsonWebTokenError: invalid signature`
+    
+    **Solution**:
+    - Ensure JWT_ACCESS_SECRET and JWT_REFRESH_SECRET are set in `.env`
+    - Regenerate tokens after changing secrets
+    - Don't use the example secrets in production
+  </Accordion>
+
+  <Accordion title="CORS errors from frontend">
+    **Error**: `Access to fetch blocked by CORS policy`
+    
+    **Solution**:
+    - Add your frontend URL to CORS_ORIGINS in `.env`:
+      ```
+      CORS_ORIGINS=http://localhost:8100,http://localhost:3001
+      ```
+    - Multiple origins should be comma-separated
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+Now that you have the API running:
+
+<CardGroup cols={2}>
+  <Card title="Explore the Architecture" icon="sitemap" href="/architecture">
+    Learn about the system design and module organization
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/auth/login">
+    Browse detailed endpoint documentation
+  </Card>
+  <Card title="Configuration Guide" icon="key" href="/guides/configuration">
+    Learn about environment configuration
+  </Card>
+  <Card title="Authentication Guide" icon="key" href="/guides/authentication">
+    Understand the JWT authentication flow
+  </Card>
+  <Card title="WebSocket Guide" icon="wifi" href="/guides/websockets">
+    Learn about real-time communication
+  </Card>
+</CardGroup>

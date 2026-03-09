@@ -1,0 +1,222 @@
+---
+title: 'Estimate Trip'
+api: 'POST /trips/estimate'
+description: 'Calculate estimated fare for a trip before creation'
+---
+
+Calculates the estimated fare for a trip based on pickup location, stops, vehicle category, and service class. This endpoint does not create a trip.
+
+<Note>
+  This endpoint is public and does not require authentication.
+</Note>
+
+## Request
+
+### Body Parameters
+
+<ParamField body="vehicleCategoryId" type="string" required>
+  UUID of the vehicle category (Auto, Moto, Van, etc.)
+</ParamField>
+
+<ParamField body="serviceClassId" type="string" required>
+  UUID of the service class (Standard, Premium, etc.)
+</ParamField>
+
+<ParamField body="pickup" type="object" required>
+  Geographic coordinates of the pickup location
+  
+  <ParamField body="pickup.lat" type="number" required>
+    Latitude (-90 to 90)
+  </ParamField>
+  
+  <ParamField body="pickup.lng" type="number" required>
+    Longitude (-180 to 180)
+  </ParamField>
+</ParamField>
+
+<ParamField body="stops" type="array" required>
+  Array of stop coordinates (minimum 1 stop required)
+  
+  <ParamField body="stops[].lat" type="number" required>
+    Latitude (-90 to 90)
+  </ParamField>
+  
+  <ParamField body="stops[].lng" type="number" required>
+    Longitude (-180 to 180)
+  </ParamField>
+</ParamField>
+
+<ParamField body="currency" type="string">
+  Preferred currency code (e.g., `CUP`, `USD`). Defaults to system currency.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the request was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Trip quote with fare breakdown
+  
+  <ResponseField name="data.currency" type="string">
+    Currency code for the fare (e.g., `CUP`, `USD`)
+  </ResponseField>
+  
+  <ResponseField name="data.surgeMultiplier" type="number">
+    Current surge pricing multiplier (1.0 = no surge)
+  </ResponseField>
+  
+  <ResponseField name="data.totalEstimated" type="number">
+    Total estimated fare including all fees and surges
+  </ResponseField>
+  
+  <ResponseField name="data.breakdown" type="object">
+    Detailed fare breakdown
+    
+    <ResponseField name="data.breakdown.base_fare" type="number">
+      Base fare amount
+    </ResponseField>
+    
+    <ResponseField name="data.breakdown.cost_per_km" type="number">
+      Cost per kilometer
+    </ResponseField>
+    
+    <ResponseField name="data.breakdown.cost_per_minute" type="number">
+      Cost per minute
+    </ResponseField>
+    
+    <ResponseField name="data.breakdown.min_fare" type="number">
+      Minimum fare guarantee
+    </ResponseField>
+    
+    <ResponseField name="data.breakdown.distance_km_est" type="number">
+      Estimated distance in kilometers
+    </ResponseField>
+    
+    <ResponseField name="data.breakdown.duration_min_est" type="number">
+      Estimated duration in minutes
+    </ResponseField>
+    
+    <ResponseField name="data.breakdown.subtotal" type="number">
+      Subtotal before surge and extras
+    </ResponseField>
+    
+    <ResponseField name="data.breakdown.total" type="number">
+      Final total amount
+    </ResponseField>
+    
+    <ResponseField name="data.breakdown.surge_multiplier" type="number">
+      Applied surge multiplier
+    </ResponseField>
+    
+    <ResponseField name="data.breakdown.vehicle_type_name" type="string">
+      Name of the vehicle type used for calculation
+    </ResponseField>
+    
+    <ResponseField name="data.breakdown.service_class_name" type="string">
+      Name of the service class
+    </ResponseField>
+    
+    <ResponseField name="data.breakdown.category_name" type="string">
+      Name of the vehicle category
+    </ResponseField>
+    
+    <ResponseField name="data.breakdown.booking_fee" type="number">
+      Booking fee if applicable
+    </ResponseField>
+    
+    <ResponseField name="data.breakdown.extra_fees_total" type="number">
+      Total of any extra fees
+    </ResponseField>
+    
+    <ResponseField name="data.breakdown.applied_multipliers" type="object">
+      Multipliers applied to base rates
+      
+      <ResponseField name="data.breakdown.applied_multipliers.base" type="number">
+        Base fare multiplier
+      </ResponseField>
+      
+      <ResponseField name="data.breakdown.applied_multipliers.per_km" type="number">
+        Per-kilometer rate multiplier
+      </ResponseField>
+      
+      <ResponseField name="data.breakdown.applied_multipliers.per_min" type="number">
+        Per-minute rate multiplier
+      </ResponseField>
+      
+      <ResponseField name="data.breakdown.applied_multipliers.min_fare" type="number">
+        Minimum fare multiplier
+      </ResponseField>
+    </ResponseField>
+  </ResponseField>
+</ResponseField>
+
+## Example
+
+```bash
+curl -X POST https://api.rodando.com/trips/estimate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "vehicleCategoryId": "cat-uuid-auto",
+    "serviceClassId": "class-uuid-standard",
+    "pickup": {
+      "lat": 40.7580,
+      "lng": -73.9855
+    },
+    "stops": [
+      {
+        "lat": 40.7614,
+        "lng": -73.9776
+      }
+    ],
+    "currency": "USD"
+  }'
+```
+
+<ResponseExample>
+```json
+{
+  "success": true,
+  "message": "Estimate computed",
+  "data": {
+    "currency": "USD",
+    "surgeMultiplier": 1.0,
+    "totalEstimated": 15.50,
+    "breakdown": {
+      "base_fare": 5.00,
+      "cost_per_km": 2.50,
+      "cost_per_minute": 0.50,
+      "min_fare": 8.00,
+      "distance_km_est": 3.2,
+      "duration_min_est": 12,
+      "subtotal": 15.50,
+      "total": 15.50,
+      "surge_multiplier": 1.0,
+      "vehicle_type_name": "Sedan",
+      "service_class_name": "Standard",
+      "category_name": "Auto",
+      "booking_fee": 0,
+      "extra_fees_total": 0,
+      "applied_multipliers": {
+        "base": 1.0,
+        "per_km": 1.0,
+        "per_min": 1.0,
+        "min_fare": 1.0
+      }
+    }
+  }
+}
+```
+</ResponseExample>
+
+## Notes
+
+- The estimate is calculated using current pricing policies and surge multipliers
+- Actual trip cost may vary based on real-time traffic and route changes
+- The `stops` array must contain at least one destination point
+- Distance and duration are estimated using routing algorithms

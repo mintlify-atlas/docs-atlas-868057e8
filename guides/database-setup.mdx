@@ -1,0 +1,299 @@
+---
+title: 'Database Setup'
+description: 'Configure and manage your PostgreSQL database'
+---
+
+## Overview
+
+Rodando Backend uses **TypeORM** with **PostgreSQL** for database management. The application supports automatic database creation, schema synchronization (dev only), and migrations.
+
+## Prerequisites
+
+<Steps>
+  <Step title="Install PostgreSQL">
+    Ensure PostgreSQL 12 or higher is installed and running:
+    
+    ```bash
+    # Check PostgreSQL version
+    psql --version
+    ```
+  </Step>
+
+  <Step title="Start PostgreSQL service">
+    ```bash
+    # On Linux/macOS
+    sudo service postgresql start
+    
+    # Or using systemctl
+    sudo systemctl start postgresql
+    ```
+  </Step>
+</Steps>
+
+## Database Creation
+
+<Steps>
+  <Step title="Create the database">
+    Connect to PostgreSQL and create the database:
+    
+    ```sql
+    CREATE DATABASE rodando;
+    ```
+
+    Or using the command line:
+    
+    ```bash
+    createdb -U postgres rodando
+    ```
+  </Step>
+
+  <Step title="Verify database exists">
+    ```sql
+    \l rodando
+    ```
+  </Step>
+</Steps>
+
+<Note>
+  The application can automatically create the database if it doesn't exist, thanks to the `DatabaseInitService`.
+</Note>
+
+## Configuration
+
+Configure database connection in your `.env` file:
+
+```bash
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=your_secure_password
+DB_NAME=rodando
+```
+
+### TypeORM Configuration
+
+The database configuration is managed by `DatabaseConfigService` in `src/database/database-config/database-config.service.ts`:
+
+```typescript
+{
+  type: 'postgres',
+  host: process.env.DB_HOST,
+  port: +process.env.DB_PORT || 5432,
+  username: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  synchronize: !isProd && DB_SYNCHRONIZE,
+  logging: DB_LOGGING,
+  autoLoadEntities: true,
+  migrationsRun: RUN_MIGRATIONS,
+  migrationsTableName: 'migrations_history'
+}
+```
+
+## Schema Management
+
+### Development Mode
+
+For development, you can use automatic schema synchronization:
+
+```bash
+DB_SYNCHRONIZE=true
+DB_LOGGING=true
+NODE_ENV=development
+```
+
+<Warning>
+  **Never use `DB_SYNCHRONIZE=true` in production!** It can cause data loss by automatically dropping and recreating tables.
+</Warning>
+
+### Production Mode
+
+For production, use migrations:
+
+```bash
+DB_SYNCHRONIZE=false
+RUN_MIGRATIONS=true
+NODE_ENV=production
+```
+
+## Migrations
+
+### Generate a Migration
+
+After making changes to your entities, generate a migration:
+
+```bash
+npm run typeorm:generate -- src/database/migrations/MigrationName
+```
+
+This command:
+1. Compares current entity definitions with the database schema
+2. Generates SQL statements to sync the schema
+3. Creates a timestamped migration file
+
+### Run Migrations
+
+Apply pending migrations:
+
+```bash
+npm run typeorm:run
+```
+
+Or enable automatic migration on startup:
+
+```bash
+RUN_MIGRATIONS=true
+```
+
+### Migration Files
+
+Migrations are stored in:
+- **Development**: `src/database/migrations/*.ts`
+- **Production**: `dist/migrations/*.js`
+
+All migrations are tracked in the `migrations_history` table.
+
+## Database Initialization
+
+The `DatabaseInitService` ensures the database exists before TypeORM connects:
+
+```typescript
+// src/database/database-init/database-init.service.ts
+await initService.ensureDatabaseExists();
+```
+
+This service:
+1. Connects to the default `postgres` database
+2. Checks if your application database exists
+3. Creates it if missing
+4. Disconnects from the default database
+
+## Connection Testing
+
+<Steps>
+  <Step title="Test database connection">
+    Start the application and check the logs:
+    
+    ```bash
+    npm run start:dev
+    ```
+
+    You should see:
+    ```
+    [TypeORM] Connected to database
+    ```
+  </Step>
+
+  <Step title="Enable SQL logging">
+    To see all SQL queries:
+    
+    ```bash
+    DB_LOGGING=true
+    ```
+  </Step>
+</Steps>
+
+## Database Module
+
+The database is configured as a global module in `src/database/database.module.ts`:
+
+```typescript
+@Global()
+@Module({})
+export class DatabaseModule {
+  static forRoot(): DynamicModule {
+    return {
+      module: DatabaseModule,
+      imports: [
+        ConfigModule.forRoot({ /* ... */ }),
+        TypeOrmModule.forRootAsync({ /* ... */ })
+      ],
+      providers: [DatabaseConfigService, DatabaseInitService],
+      exports: [TypeOrmModule, DatabaseInitService]
+    };
+  }
+}
+```
+
+## Validation Schema
+
+Database environment variables are validated using Joi:
+
+```typescript
+validationSchema: Joi.object({
+  DB_HOST: Joi.string().required(),
+  DB_PORT: Joi.number().default(5432),
+  DB_USER: Joi.string().required(),
+  DB_PASSWORD: Joi.string().required(),
+  DB_NAME: Joi.string().required(),
+  DB_SYNCHRONIZE: Joi.boolean().default(false),
+  DB_LOGGING: Joi.boolean().default(false),
+})
+```
+
+## Common Issues
+
+<AccordionGroup>
+  <Accordion title="Connection refused">
+    **Error**: `ECONNREFUSED ::1:5432`
+
+    **Solution**:
+    - Ensure PostgreSQL is running
+    - Check `DB_HOST` and `DB_PORT` in `.env`
+    - Try `DB_HOST=127.0.0.1` instead of `localhost`
+  </Accordion>
+
+  <Accordion title="Authentication failed">
+    **Error**: `password authentication failed for user`
+
+    **Solution**:
+    - Verify `DB_USER` and `DB_PASSWORD` in `.env`
+    - Check PostgreSQL `pg_hba.conf` authentication settings
+    - Ensure the user has database access permissions
+  </Accordion>
+
+  <Accordion title="Database does not exist">
+    **Error**: `database "rodando" does not exist`
+
+    **Solution**:
+    - The `DatabaseInitService` should create it automatically
+    - Or create manually: `createdb -U postgres rodando`
+  </Accordion>
+
+  <Accordion title="Migration errors">
+    **Error**: Migration fails to run
+
+    **Solution**:
+    - Check the migration file for syntax errors
+    - Ensure the database user has appropriate permissions
+    - Review the `migrations_history` table for conflicts
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Migrations" icon="arrows-rotate">
+    Always use migrations in production. Never rely on schema synchronization.
+  </Card>
+  <Card title="Backup Regularly" icon="floppy-disk">
+    Implement regular database backups before running migrations.
+  </Card>
+  <Card title="Test Migrations" icon="flask">
+    Test migrations in a staging environment before production.
+  </Card>
+  <Card title="Version Control" icon="code-branch">
+    Commit migration files to version control.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="gear" href="/guides/configuration">
+    Learn about environment configuration
+  </Card>
+  <Card title="WebSockets" icon="satellite-dish" href="/guides/websockets">
+    Set up real-time features
+  </Card>
+</CardGroup>

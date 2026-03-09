@@ -1,0 +1,269 @@
+---
+title: 'Login'
+api: 'POST /auth/login'
+---
+
+Authenticate a user and create a new session. Returns access and refresh tokens for the authenticated user.
+
+## Authentication
+
+This endpoint is public and does not require authentication.
+
+## Request Body
+
+<ParamField body="email" type="string">
+  User's email address. Either `email` or `phoneNumber` is required.
+</ParamField>
+
+<ParamField body="phoneNumber" type="string">
+  User's phone number (7-20 characters). Either `email` or `phoneNumber` is required.
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  User's password (8-100 characters).
+</ParamField>
+
+<ParamField body="appAudience" type="enum" required>
+  Application audience that determines the expected user type.
+  
+  - `driver_app` - Driver application (requires DRIVER user type)
+  - `passenger_app` - Passenger application (requires PASSENGER user type)
+  - `admin_panel` - Admin panel (requires ADMIN user type)
+  - `api_client` - API client (requires ADMIN user type)
+</ParamField>
+
+<ParamField body="sessionType" type="enum">
+  Type of session to create. If not provided, it will be inferred from device information.
+  
+  - `web` - Web browser session (refresh token sent via HttpOnly cookie)
+  - `mobile_app` - Mobile application session (refresh token returned in response body)
+  - `api_client` - API client session
+</ParamField>
+
+<ParamField body="expectedUserType" type="enum">
+  Optional explicit user type validation.
+  
+  - `DRIVER`
+  - `PASSENGER`
+  - `ADMIN`
+</ParamField>
+
+<ParamField body="deviceInfo" type="object">
+  Device information for session tracking.
+  
+  <ParamField body="deviceInfo.os" type="string">
+    Operating system name
+  </ParamField>
+  
+  <ParamField body="deviceInfo.browser" type="string">
+    Browser name
+  </ParamField>
+  
+  <ParamField body="deviceInfo.model" type="string">
+    Device model
+  </ParamField>
+  
+  <ParamField body="deviceInfo.appVersion" type="string">
+    Application version
+  </ParamField>
+</ParamField>
+
+<ParamField body="ipAddress" type="string">
+  Client IP address
+</ParamField>
+
+<ParamField body="userAgent" type="string">
+  Client user agent string
+</ParamField>
+
+<ParamField body="location" type="object">
+  User's location information.
+  
+  <ParamField body="location.latitude" type="number">
+    Latitude coordinate
+  </ParamField>
+  
+  <ParamField body="location.longitude" type="number">
+    Longitude coordinate
+  </ParamField>
+  
+  <ParamField body="location.city" type="string">
+    City name
+  </ParamField>
+  
+  <ParamField body="location.country" type="string">
+    Country name
+  </ParamField>
+</ParamField>
+
+## Response
+
+<ResponseField name="accessToken" type="string">
+  JWT access token for authenticating API requests. Valid for 15 minutes.
+</ResponseField>
+
+<ResponseField name="refreshToken" type="string">
+  JWT refresh token for obtaining new access tokens. Only returned for mobile/API clients. For web sessions, this is sent as an HttpOnly cookie.
+</ResponseField>
+
+<ResponseField name="sessionType" type="enum">
+  Type of session created.
+  
+  - `web`
+  - `mobile_app`
+  - `api_client`
+</ResponseField>
+
+<ResponseField name="accessTokenExpiresAt" type="number">
+  Access token expiration timestamp in milliseconds since epoch.
+</ResponseField>
+
+<ResponseField name="refreshTokenExpiresAt" type="number">
+  Refresh token expiration timestamp in milliseconds since epoch (typically 7 days).
+</ResponseField>
+
+<ResponseField name="sid" type="string">
+  Session ID (JWT identifier)
+</ResponseField>
+
+<ResponseField name="userType" type="string">
+  Type of the authenticated user (DRIVER, PASSENGER, or ADMIN)
+</ResponseField>
+
+<ResponseField name="user" type="object">
+  Authenticated user information.
+  
+  <ResponseField name="user.id" type="string">
+    User ID
+  </ResponseField>
+  
+  <ResponseField name="user.name" type="string">
+    User's full name
+  </ResponseField>
+  
+  <ResponseField name="user.email" type="string">
+    User's email address
+  </ResponseField>
+  
+  <ResponseField name="user.phoneNumber" type="string">
+    User's phone number
+  </ResponseField>
+  
+  <ResponseField name="user.userType" type="string">
+    User type
+  </ResponseField>
+  
+  <ResponseField name="user.profilePictureUrl" type="string">
+    URL to user's profile picture
+  </ResponseField>
+  
+  <ResponseField name="user.preferredLanguage" type="string">
+    User's preferred language code
+  </ResponseField>
+</ResponseField>
+
+## Error Responses
+
+<ResponseField name="401 Unauthorized" type="error">
+  Invalid credentials provided.
+  
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Email o contraseña inválidos"
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="403 Forbidden" type="error">
+  Account is not active or user doesn't have permission for this application.
+  
+  ```json
+  {
+    "statusCode": 403,
+    "message": "La cuenta no está activa"
+  }
+  ```
+  
+  ```json
+  {
+    "statusCode": 403,
+    "message": "No tienes permisos para esta aplicación"
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="400 Bad Request" type="error">
+  Invalid request parameters or unexpected error.
+  
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Error inesperado durante el login"
+  }
+  ```
+</ResponseField>
+
+## Examples
+
+### Login with Email (Web)
+
+```bash
+curl -X POST https://api.rodando.com/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "securePassword123",
+    "appAudience": "passenger_app",
+    "sessionType": "web"
+  }'
+```
+
+### Login with Phone Number (Mobile)
+
+```bash
+curl -X POST https://api.rodando.com/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phoneNumber": "+1234567890",
+    "password": "securePassword123",
+    "appAudience": "driver_app",
+    "sessionType": "mobile_app",
+    "deviceInfo": {
+      "os": "iOS",
+      "model": "iPhone 14",
+      "appVersion": "2.1.0"
+    }
+  }'
+```
+
+### Response Example
+
+```json
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "sessionType": "mobile_app",
+  "accessTokenExpiresAt": 1709999999999,
+  "refreshTokenExpiresAt": 1710604799999,
+  "sid": "550e8400-e29b-41d4-a716-446655440000",
+  "userType": "DRIVER",
+  "user": {
+    "id": "user-123",
+    "name": "John Doe",
+    "email": "john@example.com",
+    "phoneNumber": "+1234567890",
+    "userType": "DRIVER",
+    "profilePictureUrl": "https://cdn.rodando.com/profiles/user-123.jpg",
+    "preferredLanguage": "en"
+  }
+}
+```
+
+## Notes
+
+- For **web sessions**, the refresh token is automatically set as an HttpOnly cookie and will not be present in the response body
+- For **mobile and API clients**, both tokens are returned in the response body
+- The `appAudience` parameter must match the user's type (e.g., `driver_app` requires a DRIVER user)
+- User account must be in ACTIVE status to login
+- Sessions are tracked with device information for security and analytics purposes

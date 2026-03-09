@@ -1,0 +1,670 @@
+---
+title: Admin Events
+description: Real-time monitoring events for administrative dashboards
+---
+
+## Overview
+
+The **Admin Gateway** (`/admin` namespace) provides real-time monitoring capabilities for administrative dashboards, allowing operations teams to track driver availability, trip assignments, and authentication events.
+
+## Gateway Configuration
+
+```typescript
+// From admin.gateway.ts:15
+@WebSocketGateway({ namespace: '/admin', cors: true })
+export class AdminGateway implements OnGatewayConnection, OnGatewayDisconnect
+```
+
+## Connection
+
+### Authentication
+
+Admin connections require a JWT token from a user with administrative privileges (not DRIVER type).
+
+```javascript
+import { io } from 'socket.io-client';
+
+const adminSocket = io('http://localhost:3000/admin', {
+  auth: { token: adminAccessToken }
+});
+
+adminSocket.on('connect', () => {
+  console.log('Connected to admin namespace');
+});
+
+adminSocket.on('connect_error', (error) => {
+  console.error('Admin connection error:', error.message);
+  // Common errors:
+  // - "Drivers not allowed in /admin"
+  // - "User inactive"
+  // - "Invalid session"
+});
+```
+
+### Server-Side Validation
+
+```typescript
+// From admin.gateway.ts:32
+async handleConnection(client: Socket) {
+  try {
+    const token =
+      (client.handshake.auth as any)?.token ||
+      (client.handshake.headers?.authorization || '').replace(
+        /^Bearer\s+/i,
+        '',
+      );
+    if (!token) throw new Error('Missing token');
+
+    const payload = this.tokenService.verifyAccessToken<any>(token);
+    const userId = payload?.sub as string | undefined;
+    const sid = payload?.sid as string | undefined;
+    if (!userId || !sid) throw new Error('Missing sub/sid');
+
+    const user = await this.usersRepo.findById(userId);
+    if (!user) throw new Error('User not found');
+    if (user.status !== UserStatus.ACTIVE) throw new Error('User inactive');
+
+    // Reject drivers from admin namespace
+    if (user.userType === UserType.DRIVER)
+      throw new Error('Drivers not allowed in /admin');
+
+    const session = await this.sessionRepo.findOne({ where: { jti: sid } });
+    if (!session || session.revoked) throw new Error('Invalid session');
+
+    // Store admin context
+    (client as any).data = { userId, sid, role: user.userType };
+    (client as any).join?.('admin:all');
+
+    this.logger.log(`Admin WS connected user=${userId} sid=${sid}`);
+  } catch (e) {
+    this.logger.warn(`Admin WS handshake failed: ${(e as Error).message}`);
+    client.disconnect();
+  }
+}
+```
+
+## Admin Rooms
+
+Admin sockets are automatically joined to specific rooms:
+
+- `admin:all` - All admin users (global broadcasts)
+- `admin:drivers` - Driver monitoring dashboard
+- `trip:{tripId}` - Specific trip monitoring (dynamically joined)
+
+## Driver Monitoring Events
+
+### `driver:availability:update`
+
+Broadcast when any driver's availability status changes.
+
+**Payload:**
+
+```typescript
+{
+  driverId: string;
+  isOnline: boolean;
+  isAvailableForTrips: boolean;
+  availabilityReason?: string;
+  currentTripId?: string | null;
+  lastLocationTimestamp?: string;
+  // ... full availability snapshot
+}
+```
+
+**Client Example:**
+
+```javascript
+adminSocket.on('driver:availability:update', (data) => {
+  console.log('Driver availability changed:', data.driverId);
+  console.log('Online:', data.isOnline);
+  console.log('Available:', data.isAvailableForTrips);
+  console.log('Current trip:', data.currentTripId);
+  
+  // Update driver list/map
+  updateDriverStatus(data.driverId, {
+    online: data.isOnline,
+    available: data.isAvailableForTrips,
+    tripId: data.currentTripId,
+    reason: data.availabilityReason
+  });
+});
+```
+
+**Server Implementation:**
+
+```typescript
+// From driver-availability.gateway.ts:140
+this.server
+  .to('admin:drivers')
+  .emit('driver:availability:update', updated);
+```
+
+### `admin:driver:availability:update`
+
+Alternative broadcast for driver availability (domain event).
+
+**Payload:** Same as `driver:availability:update`
+
+**Server Implementation:**
+
+```typescript
+// From driver-availability-realtime.publisher.ts:27
+this.adminGateway.server?.emit(
+  'admin:driver:availability:update',
+  ev.snapshot,
+);
+```
+
+### `driver:location:update`
+
+Broadcast when driver's GPS location updates.
+
+**Payload:**
+
+```typescript
+{
+  driverId: string;
+  lastLocation: {
+    lat: number;
+    lng: number;
+  };
+  lastLocationTimestamp: string;  // ISO timestamp
+}
+```
+
+**Client Example:**
+
+```javascript
+adminSocket.on('driver:location:update', (data) => {
+  console.log('Driver location update:', data.driverId);
+  console.log('Position:', data.lastLocation);
+  
+  // Update driver marker on admin map
+  updateDriverMarkerOnMap(data.driverId, {
+    lat: data.lastLocation.lat,
+    lng: data.lastLocation.lng,
+    timestamp: data.lastLocationTimestamp
+  });
+});
+```
+
+### `admin:driver:location:update`
+
+Alternative location broadcast (full snapshot).
+
+**Payload:** Full availability snapshot including location
+
+```typescript
+// From driver-availability-realtime.publisher.ts:40
+this.gateway.server?.emit('admin:driver:location:update', ev.snapshot);
+```
+
+### `driver:trip:update`
+
+Broadcast when driver's trip assignment changes.
+
+**Payload:**
+
+```typescript
+{
+  driverId: string;
+  currentTripId: string | null;
+  availabilityReason?: string;
+  isAvailableForTrips: boolean;
+}
+```
+
+**Client Example:**
+
+```javascript
+adminSocket.on('driver:trip:update', (data) => {
+  console.log('Driver trip assignment:', data.driverId);
+  console.log('Trip ID:', data.currentTripId);
+  console.log('Available:', data.isAvailableForTrips);
+  
+  // Update dashboard
+  updateDriverTripAssignment(data.driverId, data.currentTripId);
+});
+```
+
+### `admin:driver:trip:update`
+
+Alternative trip update broadcast (full snapshot).
+
+```typescript
+// From driver-availability-realtime.publisher.ts:49
+this.gateway.server?.emit('admin:driver:trip:update', ev.snapshot);
+```
+
+## Trip Monitoring Events
+
+All trip lifecycle events are broadcast to the admin namespace on `trip:{tripId}` rooms:
+
+### Trip Request Events
+
+```javascript
+// Trip requested
+adminSocket.on('trip:requested', (data) => {
+  console.log('New trip requested:', data.tripId);
+  console.log('Passenger:', data.passengerId);
+  console.log('Pickup:', data.pickup?.address);
+  
+  addTripToMonitor(data);
+});
+
+// Assignment started
+adminSocket.on('trip:assigning_started', (data) => {
+  console.log('Finding driver for trip:', data.tripId);
+  updateTripStatus(data.tripId, 'assigning');
+});
+```
+
+### Assignment Events
+
+```javascript
+// Driver offered
+adminSocket.on('trip:assignment:offered', (data) => {
+  console.log('Trip offered to driver:', data.driverId);
+  console.log('Assignment ID:', data.assignmentId);
+  console.log('Expires at:', data.expiresAt);
+  
+  addAssignmentOffer(data);
+});
+
+// Driver accepted
+adminSocket.on('trip:assignment:accepted', (data) => {
+  console.log('Driver accepted:', data.driverId);
+  updateTripStatus(data.tripId, 'accepted');
+});
+
+// Driver rejected
+adminSocket.on('trip:assignment:rejected', (data) => {
+  console.log('Driver rejected:', data.driverId);
+  console.log('Reason:', data.reason);
+  logRejection(data);
+});
+
+// Assignment expired
+adminSocket.on('trip:assignment:expired', (data) => {
+  console.log('Assignment expired:', data.assignmentId);
+  logExpiration(data);
+});
+
+// No drivers found
+adminSocket.on('trip:no_drivers_found', (data) => {
+  console.log('No drivers found for trip:', data.tripId);
+  console.log('Reason:', data.reason);
+  alertNoDrivers(data);
+});
+```
+
+### Trip Progress Events
+
+```javascript
+// Driver assigned
+adminSocket.on('trip:driver_assigned', (data) => {
+  console.log('Driver assigned to trip:', data.tripId);
+  console.log('Driver:', data.driverId);
+  console.log('Passenger:', data.passengerId);
+  
+  updateTripAssignment(data);
+});
+
+// Arriving started
+adminSocket.on('trip:arriving_started', (data) => {
+  updateTripStatus(data.tripId, 'arriving');
+});
+
+// Driver en route
+adminSocket.on('trip:driver_en_route', (data) => {
+  console.log('Driver ETA:', data.etaMinutes);
+  updateTripETA(data.tripId, data.etaMinutes);
+});
+
+// Driver arrived
+adminSocket.on('trip:driver_arrived_pickup', (data) => {
+  updateTripStatus(data.tripId, 'waiting_for_passenger');
+});
+
+// Trip started
+adminSocket.on('trip:started', (data) => {
+  updateTripStatus(data.tripId, 'in_progress');
+});
+
+// Trip completed
+adminSocket.on('trip:completed', (data) => {
+  console.log('Trip completed:', data.tripId);
+  console.log('Fare:', data.fareTotal, data.currency);
+  
+  updateTripStatus(data.tripId, 'completed');
+  logTripCompletion(data);
+});
+```
+
+## Authentication Events
+
+### `admin:auth:user_logged_in`
+
+Broadcast when any user logs in.
+
+**Payload:**
+
+```typescript
+{
+  userId: string;
+  userType: string;         // DRIVER, PASSENGER, ADMIN, etc.
+  sid: string;              // Session ID
+  sessionType: string;      // e.g., "mobile", "web"
+  at: string;               // ISO timestamp
+  deviceInfo?: object;      // Device information
+}
+```
+
+**Client Example:**
+
+```javascript
+adminSocket.on('admin:auth:user_logged_in', (data) => {
+  console.log('User logged in:', data.userId);
+  console.log('Type:', data.userType);
+  console.log('Session:', data.sid);
+  console.log('Device:', data.deviceInfo);
+  
+  // Add to active sessions log
+  logUserLogin(data);
+  
+  // Update online users count
+  if (data.userType === 'DRIVER') {
+    incrementOnlineDriversCount();
+  }
+});
+```
+
+**Server Implementation:**
+
+```typescript
+// From auth-realtime.publisher.ts:21
+this.driverGateway?.server?.emit('admin:auth:user_logged_in', {
+  userId: ev.userId,
+  userType: ev.userType,
+  sid: ev.sid,
+  sessionType: ev.sessionType,
+  at: ev.at,
+  deviceInfo: ev.deviceInfo,
+});
+```
+
+## Complete Admin Dashboard Example
+
+```javascript
+import { io } from 'socket.io-client';
+
+class AdminDashboardClient {
+  constructor(adminToken) {
+    this.socket = io('http://localhost:3000/admin', {
+      auth: { token: adminToken },
+      reconnection: true,
+    });
+
+    this.drivers = new Map();
+    this.trips = new Map();
+    this.setupListeners();
+  }
+
+  setupListeners() {
+    this.socket.on('connect', () => {
+      console.log('✅ Admin dashboard connected');
+      this.loadInitialData();
+    });
+
+    // Driver monitoring
+    this.socket.on('driver:availability:update', (data) => {
+      this.updateDriver(data);
+    });
+
+    this.socket.on('driver:location:update', (data) => {
+      this.updateDriverLocation(data);
+    });
+
+    this.socket.on('driver:trip:update', (data) => {
+      this.updateDriverTrip(data);
+    });
+
+    // Trip monitoring
+    this.socket.on('trip:requested', (data) => {
+      this.addTrip(data);
+    });
+
+    this.socket.on('trip:assignment:offered', (data) => {
+      this.logAssignmentOffer(data);
+    });
+
+    this.socket.on('trip:assignment:accepted', (data) => {
+      this.onTripAccepted(data);
+    });
+
+    this.socket.on('trip:no_drivers_found', (data) => {
+      this.onNoDriversFound(data);
+    });
+
+    this.socket.on('trip:completed', (data) => {
+      this.onTripCompleted(data);
+    });
+
+    // Auth monitoring
+    this.socket.on('admin:auth:user_logged_in', (data) => {
+      this.logUserLogin(data);
+    });
+  }
+
+  async loadInitialData() {
+    // Load current drivers and trips via REST API
+    const [drivers, trips] = await Promise.all([
+      fetch('/api/admin/drivers/active').then(r => r.json()),
+      fetch('/api/admin/trips/active').then(r => r.json())
+    ]);
+
+    drivers.forEach(d => this.drivers.set(d.driverId, d));
+    trips.forEach(t => this.trips.set(t.tripId, t));
+    
+    this.renderDashboard();
+  }
+
+  updateDriver(data) {
+    this.drivers.set(data.driverId, {
+      ...this.drivers.get(data.driverId),
+      ...data
+    });
+    this.renderDriversList();
+    this.updateDriverMarker(data.driverId);
+  }
+
+  updateDriverLocation(data) {
+    const driver = this.drivers.get(data.driverId);
+    if (driver) {
+      driver.lastLocation = data.lastLocation;
+      driver.lastLocationTimestamp = data.lastLocationTimestamp;
+      this.updateDriverMarker(data.driverId);
+    }
+  }
+
+  updateDriverTrip(data) {
+    const driver = this.drivers.get(data.driverId);
+    if (driver) {
+      driver.currentTripId = data.currentTripId;
+      driver.isAvailableForTrips = data.isAvailableForTrips;
+      this.renderDriversList();
+    }
+  }
+
+  addTrip(data) {
+    this.trips.set(data.tripId, data);
+    this.renderTripsList();
+    this.updateMetrics();
+  }
+
+  logAssignmentOffer(data) {
+    console.log(`📤 Offer sent to driver ${data.driverId} for trip ${data.tripId}`);
+    this.addActivityLog({
+      type: 'offer',
+      message: `Trip ${data.tripId} offered to driver ${data.driverId}`,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  onTripAccepted(data) {
+    const trip = this.trips.get(data.tripId);
+    if (trip) {
+      trip.status = 'accepted';
+      trip.driverId = data.driverId;
+      this.renderTripsList();
+    }
+  }
+
+  onNoDriversFound(data) {
+    console.warn(`⚠️  No drivers found for trip ${data.tripId}`);
+    this.showAlert({
+      type: 'warning',
+      message: `No drivers available for trip ${data.tripId}`,
+      reason: data.reason
+    });
+  }
+
+  onTripCompleted(data) {
+    const trip = this.trips.get(data.tripId);
+    if (trip) {
+      trip.status = 'completed';
+      trip.fareTotal = data.fareTotal;
+      this.trips.delete(data.tripId); // Remove from active trips
+      this.renderTripsList();
+      this.updateMetrics();
+    }
+  }
+
+  logUserLogin(data) {
+    this.addActivityLog({
+      type: 'login',
+      message: `${data.userType} ${data.userId} logged in`,
+      timestamp: data.at,
+      device: data.deviceInfo
+    });
+  }
+
+  renderDashboard() {
+    this.renderDriversList();
+    this.renderTripsList();
+    this.renderDriversMap();
+    this.updateMetrics();
+  }
+
+  renderDriversList() {
+    const container = document.getElementById('drivers-list');
+    container.innerHTML = '';
+
+    const onlineDrivers = Array.from(this.drivers.values())
+      .filter(d => d.isOnline);
+
+    onlineDrivers.forEach(driver => {
+      const div = document.createElement('div');
+      div.className = `driver-item ${driver.isAvailableForTrips ? 'available' : 'busy'}`;
+      div.innerHTML = `
+        <div class="driver-id">${driver.driverId}</div>
+        <div class="driver-status">
+          ${driver.isAvailableForTrips ? '🟢 Available' : '🔴 Busy'}
+        </div>
+        <div class="driver-trip">
+          ${driver.currentTripId ? `Trip: ${driver.currentTripId}` : 'No active trip'}
+        </div>
+      `;
+      container.appendChild(div);
+    });
+  }
+
+  renderTripsList() {
+    // Render active trips
+  }
+
+  renderDriversMap() {
+    // Render drivers on map
+  }
+
+  updateDriverMarker(driverId) {
+    // Update specific driver marker on map
+  }
+
+  updateMetrics() {
+    const onlineDrivers = Array.from(this.drivers.values())
+      .filter(d => d.isOnline).length;
+    const availableDrivers = Array.from(this.drivers.values())
+      .filter(d => d.isAvailableForTrips).length;
+    const activeTrips = this.trips.size;
+
+    document.getElementById('online-drivers').textContent = onlineDrivers;
+    document.getElementById('available-drivers').textContent = availableDrivers;
+    document.getElementById('active-trips').textContent = activeTrips;
+  }
+
+  addActivityLog(entry) {
+    const log = document.getElementById('activity-log');
+    const item = document.createElement('div');
+    item.className = `log-item log-${entry.type}`;
+    item.textContent = `${entry.timestamp} - ${entry.message}`;
+    log.prepend(item);
+  }
+
+  showAlert(alert) {
+    // Show alert notification
+  }
+
+  disconnect() {
+    this.socket.disconnect();
+  }
+}
+
+// Usage
+const dashboard = new AdminDashboardClient(adminAccessToken);
+```
+
+## Best Practices
+
+### Monitoring Strategy
+
+- Subscribe to all relevant events on connection
+- Maintain in-memory state for active drivers and trips
+- Load initial data via REST API, then update via WebSocket events
+- Use room subscriptions for specific trip monitoring
+
+### Performance Optimization
+
+- Batch UI updates to avoid excessive re-renders
+- Use virtual scrolling for large driver/trip lists
+- Throttle location updates on map (max 1 update per second per driver)
+
+### Error Handling
+
+```javascript
+adminSocket.on('connect_error', (error) => {
+  console.error('Admin connection error:', error.message);
+  showConnectionError();
+});
+
+adminSocket.on('disconnect', (reason) => {
+  console.warn('Admin disconnected:', reason);
+  showDisconnectedState();
+  
+  if (reason === 'io server disconnect') {
+    // Server forced disconnect - may need to re-authenticate
+    checkAuthStatus();
+  }
+});
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Overview" icon="book" href="/websockets/overview">
+    WebSocket architecture and concepts
+  </Card>
+  <Card title="Connection Setup" icon="plug" href="/websockets/connection">
+    How to establish connections
+  </Card>
+</CardGroup>

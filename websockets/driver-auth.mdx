@@ -1,0 +1,458 @@
+---
+title: Driver Auth Events
+description: Authentication lifecycle events for driver WebSocket connections
+---
+
+## Overview
+
+The **Driver Auth Gateway** (`/drivers` namespace) handles authentication events for driver sessions, including login notifications, session refreshes, and forced disconnections.
+
+## Gateway Configuration
+
+```typescript
+// From driver-auth.gateway.ts:14
+@WebSocketGateway({ namespace: '/drivers', cors: true })
+export class DriverAuthGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+```
+
+## Connection Authentication
+
+### Handshake Flow
+
+When a driver connects, the gateway performs these validations:
+
+```typescript
+// From driver-auth.gateway.ts:29
+async handleConnection(client: Socket) {
+  try {
+    // 1. Extract token from handshake
+    const token =
+      (client.handshake.auth as any)?.token ||
+      (client.handshake.headers?.authorization || '').replace(
+        /^Bearer\s+/i,
+        '',
+      );
+    if (!token) throw new Error('Missing token');
+
+    // 2. Verify access token
+    const payload = this.tokenService.verifyAccessToken<any>(token);
+    const userId = payload?.sub as string | undefined;
+    const sid = payload?.sid as string | undefined;
+    if (!userId || !sid) throw new Error('Missing sub/sid in token');
+
+    // 3. Verify user (must be DRIVER and ACTIVE)
+    const user = await this.usersRepo.findById(userId);
+    if (!user) throw new Error('User not found');
+    if (user.userType !== UserType.DRIVER)
+      throw new Error('Wrong userType for /drivers');
+    if (user.status !== UserStatus.ACTIVE) throw new Error('User not active');
+
+    // 4. Verify session (not revoked and access not expired)
+    const session = await this.sessionRepo.findOne({ where: { jti: sid } });
+    if (!session) throw new Error('Session not found');
+    if (session.revoked) throw new Error('Session revoked');
+    if (
+      session.accessTokenExpiresAt &&
+      session.accessTokenExpiresAt < new Date()
+    ) {
+      throw new Error('Access token expired (session)');
+    }
+
+    // 5. Store context and join rooms
+    (client as any).data = { driverId: userId, sid };
+    (client as any).join?.(`driver:${userId}`);
+    (client as any).join?.(`session:${sid}`);
+
+    this.logger.log(`Driver connected user=${userId} sid=${sid}`);
+  } catch (e) {
+    this.logger.warn(`WS /drivers handshake failed: ${(e as Error).message}`);
+    client.disconnect();
+  }
+}
+```
+
+### Client Connection Example
+
+```javascript
+import { io } from 'socket.io-client';
+
+const driverSocket = io('http://localhost:3000/drivers', {
+  auth: {
+    token: accessToken  // JWT access token
+  }
+});
+
+driverSocket.on('connect', () => {
+  console.log('Connected as driver');
+});
+
+driverSocket.on('connect_error', (error) => {
+  console.error('Auth failed:', error.message);
+  // Handle specific errors:
+  // - "Missing token"
+  // - "User not found"
+  // - "Wrong userType for /drivers"
+  // - "User not active"
+  // - "Session revoked"
+  // - "Access token expired (session)"
+});
+```
+
+## Outbound Events (Server → Driver)
+
+### `auth:logged_in`
+
+Notifies the driver about a successful login (if they already have active sockets).
+
+**Payload:**
+
+```typescript
+{
+  sid: string;         // Session ID
+  at: string;          // ISO timestamp
+}
+```
+
+**Client Example:**
+
+```javascript
+driverSocket.on('auth:logged_in', (data) => {
+  console.log('Logged in at:', data.at);
+  console.log('Session ID:', data.sid);
+  // Update UI, store session info
+});
+```
+
+**Server Implementation:**
+
+```typescript
+// From auth-realtime.publisher.ts:31
+if (ev.userType === UserType.DRIVER) {
+  this.driverGateway?.server
+    ?.to(`driver:${ev.userId}`)
+    .emit('auth:logged_in', {
+      sid: ev.sid,
+      at: ev.at,
+    });
+}
+```
+
+### `auth:session_refreshed`
+
+Notifies when a session token has been refreshed. The old session is disconnected.
+
+**Payload:**
+
+```typescript
+{
+  oldSid: string;      // Previous session ID
+  newSid: string;      // New session ID
+  at: string;          // ISO timestamp
+}
+```
+
+**Client Example:**
+
+```javascript
+driverSocket.on('auth:session_refreshed', (data) => {
+  console.log('Session refreshed:', data.oldSid, '→', data.newSid);
+  // Expect disconnection and reconnect with new token
+});
+
+driverSocket.on('disconnect', (reason) => {
+  if (reason === 'io server disconnect') {
+    console.log('Forced disconnect - refreshing token');
+    // Fetch new token and reconnect
+    refreshToken().then(newToken => {
+      driverSocket.auth.token = newToken;
+      driverSocket.connect();
+    });
+  }
+});
+```
+
+**Server Implementation:**
+
+```typescript
+// From auth-realtime.publisher.ts:41
+sessionRefreshed(ev: SessionRefreshedEvent) {
+  // Disconnect sockets with old session ID
+  this.driverGateway?.server
+    ?.to(`session:${ev.oldSid}`)
+    .disconnectSockets?.(true);
+
+  // Notify driver of refresh (if still connected on other sessions)
+  this.driverGateway?.server
+    ?.to(`driver:${ev.userId}`)
+    .emit('auth:session_refreshed', {
+      oldSid: ev.oldSid,
+      newSid: ev.newSid,
+      at: ev.at,
+    });
+}
+```
+
+### `auth:session_revoked`
+
+Notifies when a session has been revoked (e.g., logout, security event). The socket is forcefully disconnected.
+
+**Payload:**
+
+```typescript
+{
+  sid: string;         // Revoked session ID
+  reason: string;      // Reason for revocation (default: "revoked")
+  at: string;          // ISO timestamp
+}
+```
+
+**Client Example:**
+
+```javascript
+driverSocket.on('auth:session_revoked', (data) => {
+  console.log('Session revoked:', data.reason);
+  console.log('Session ID:', data.sid);
+  // Clear local auth data
+  // Redirect to login
+});
+
+driverSocket.on('disconnect', (reason) => {
+  if (reason === 'io server disconnect') {
+    console.log('Disconnected by server - checking for revocation');
+    // Check if session was revoked
+    // Redirect to login if needed
+  }
+});
+```
+
+**Server Implementation:**
+
+```typescript
+// From auth-realtime.publisher.ts:57
+sessionRevoked(ev: SessionRevokedEvent) {
+  // Disconnect all sockets for this session
+  this.driverGateway?.server
+    ?.to(`session:${ev.sid}`)
+    .disconnectSockets?.(true);
+
+  // Notify driver (if they have other active sessions)
+  this.driverGateway?.server
+    ?.to(`driver:${ev.userId}`)
+    .emit('auth:session_revoked', {
+      sid: ev.sid,
+      reason: ev.reason ?? 'revoked',
+      at: ev.at,
+    });
+}
+```
+
+### `admin:auth:user_logged_in`
+
+Broadcast to admin clients when any user logs in (monitoring purposes).
+
+**Payload:**
+
+```typescript
+{
+  userId: string;           // User ID
+  userType: string;         // User type (DRIVER, PASSENGER, etc.)
+  sid: string;              // Session ID
+  sessionType: string;      // Session type (e.g., "mobile", "web")
+  at: string;               // ISO timestamp
+  deviceInfo?: object;      // Optional device information
+}
+```
+
+**Server Implementation:**
+
+```typescript
+// From auth-realtime.publisher.ts:18
+userLoggedIn(ev: UserLoggedInEvent) {
+  this.driverGateway?.server?.emit('admin:auth:user_logged_in', {
+    userId: ev.userId,
+    userType: ev.userType,
+    sid: ev.sid,
+    sessionType: ev.sessionType,
+    at: ev.at,
+    deviceInfo: ev.deviceInfo,
+  });
+}
+```
+
+## Disconnection
+
+### Client Disconnection
+
+```typescript
+// From driver-auth.gateway.ts:80
+async handleDisconnect(client: Socket) {
+  const data = (client as any).data || {};
+  this.logger.log(
+    `Driver disconnected user=${data.driverId ?? 'unknown'} sid=${data.sid ?? 'unknown'}`,
+  );
+}
+```
+
+### Client Example
+
+```javascript
+driverSocket.on('disconnect', (reason) => {
+  console.log('Disconnected:', reason);
+  
+  switch (reason) {
+    case 'io server disconnect':
+      // Server forcefully disconnected (session revoked/refreshed)
+      console.log('Forced disconnect by server');
+      break;
+    case 'io client disconnect':
+      // Client called socket.disconnect()
+      console.log('Manual disconnect');
+      break;
+    case 'ping timeout':
+      // Connection lost
+      console.log('Connection timeout');
+      break;
+    case 'transport close':
+      // Network issue
+      console.log('Network closed');
+      break;
+    case 'transport error':
+      // Transport error
+      console.log('Transport error');
+      break;
+  }
+});
+```
+
+## Complete Client Example
+
+```javascript
+import { io } from 'socket.io-client';
+
+class DriverAuthClient {
+  constructor(accessToken) {
+    this.socket = io('http://localhost:3000/drivers', {
+      auth: { token: accessToken },
+      reconnection: true,
+      reconnectionAttempts: 5,
+    });
+
+    this.setupListeners();
+  }
+
+  setupListeners() {
+    this.socket.on('connect', () => {
+      console.log('✅ Connected as driver');
+    });
+
+    this.socket.on('connect_error', (error) => {
+      console.error('❌ Connection error:', error.message);
+      this.handleAuthError(error.message);
+    });
+
+    this.socket.on('auth:logged_in', (data) => {
+      console.log('🔐 Logged in:', data);
+      this.onLoggedIn(data);
+    });
+
+    this.socket.on('auth:session_refreshed', (data) => {
+      console.log('🔄 Session refreshed:', data);
+      this.onSessionRefreshed(data);
+    });
+
+    this.socket.on('auth:session_revoked', (data) => {
+      console.log('🚫 Session revoked:', data);
+      this.onSessionRevoked(data);
+    });
+
+    this.socket.on('disconnect', (reason) => {
+      console.log('⚠️  Disconnected:', reason);
+      this.onDisconnect(reason);
+    });
+  }
+
+  handleAuthError(message) {
+    if (message.includes('expired') || message.includes('revoked')) {
+      // Redirect to login
+      window.location.href = '/login';
+    }
+  }
+
+  onLoggedIn(data) {
+    // Store session info
+    localStorage.setItem('sessionId', data.sid);
+  }
+
+  async onSessionRefreshed(data) {
+    // Fetch new token
+    const newToken = await this.refreshToken();
+    this.socket.auth.token = newToken;
+  }
+
+  onSessionRevoked(data) {
+    // Clear local data and redirect to login
+    localStorage.clear();
+    window.location.href = '/login';
+  }
+
+  onDisconnect(reason) {
+    if (reason === 'io server disconnect') {
+      // Server forcefully disconnected - check if we need to re-auth
+      console.log('Server disconnected - may need to refresh token');
+    }
+  }
+
+  async refreshToken() {
+    // Implement token refresh logic
+    const response = await fetch('/api/auth/refresh', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: localStorage.getItem('refreshToken') })
+    });
+    const { accessToken } = await response.json();
+    return accessToken;
+  }
+
+  disconnect() {
+    this.socket.disconnect();
+  }
+}
+
+// Usage
+const authClient = new DriverAuthClient(myAccessToken);
+```
+
+## Security Considerations
+
+### Token Validation
+
+- JWT tokens are verified using `TokenService.verifyAccessToken()`
+- Both `sub` (user ID) and `sid` (session ID) must be present in the token
+- User must exist, be active, and have type `DRIVER`
+- Session must not be revoked and access token must not be expired
+
+### Forced Disconnection Scenarios
+
+1. **Session Refresh**: Old session sockets are disconnected when token is refreshed
+2. **Session Revocation**: All sockets for a session are disconnected when it's revoked
+3. **Manual Logout**: Server can trigger disconnection via `disconnectSid(sid)` method
+
+### Room-Based Access Control
+
+Sockets are automatically joined to:
+- `driver:{userId}` - User-specific events
+- `session:{sid}` - Session-specific control (disconnection)
+
+This ensures targeted message delivery and security isolation.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Driver Availability" icon="location-dot" href="/websockets/driver-availability">
+    Learn about driver status and location events
+  </Card>
+  <Card title="Connection Setup" icon="plug" href="/websockets/connection">
+    General WebSocket connection guide
+  </Card>
+</CardGroup>

@@ -1,0 +1,378 @@
+---
+title: Driver Profiles
+description: Manage driver profiles, licenses, and background checks
+---
+
+## Create Driver Profile
+
+<api method="POST" path="/drivers">
+  Creates a new driver profile with license information and optional vehicle.
+</api>
+
+### Body Parameters
+
+<ParamField body="userId" type="string" required>
+  UUID of the user account to associate with this driver profile
+</ParamField>
+
+<ParamField body="driverLicenseNumber" type="string" required>
+  Driver license number (1-50 characters, must be unique)
+</ParamField>
+
+<ParamField body="driverLicenseExpirationDate" type="string" required>
+  License expiration date in ISO 8601 format
+</ParamField>
+
+<ParamField body="driverLicensePictureUrl" type="string">
+  URL to the driver license image
+</ParamField>
+
+<ParamField body="backgroundCheckStatus" type="enum">
+  Background check status. Defaults to `pending_background_check`
+  - `pending_background_check`
+  - `approved`
+  - `rejected`
+</ParamField>
+
+<ParamField body="backgroundCheckDate" type="string">
+  Date when background check was performed (ISO 8601)
+</ParamField>
+
+<ParamField body="isApproved" type="boolean">
+  Whether the driver is approved to operate. Defaults to `false`
+</ParamField>
+
+<ParamField body="emergencyContactInfo" type="object">
+  Emergency contact information
+  <Expandable title="properties">
+    <ParamField body="name" type="string" required>
+      Contact name (1-100 characters)
+    </ParamField>
+    <ParamField body="phoneNumber" type="string" required>
+      Contact phone number (7-20 characters)
+    </ParamField>
+    <ParamField body="relationship" type="string" required>
+      Relationship to driver (1-50 characters)
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="driverStatus" type="enum">
+  Operational status of the driver. Defaults to `pending_docs`
+  - `active` - Approved and actively driving
+  - `suspended` - Temporarily suspended
+  - `on_vacation` - On vacation
+  - `pending_docs` - Awaiting documentation
+  - `deactivated` - Account deactivated
+</ParamField>
+
+<ParamField body="paidPriorityUntil" type="string">
+  Date until which the driver has paid priority status (ISO 8601)
+</ParamField>
+
+<ParamField body="initialVehicle" type="object">
+  Optional vehicle to create alongside the driver profile during onboarding
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the operation was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Created driver profile
+  <Expandable title="properties">
+    <ResponseField name="id" type="string">
+      Driver profile UUID
+    </ResponseField>
+    <ResponseField name="userId" type="string">
+      Associated user UUID
+    </ResponseField>
+    <ResponseField name="driverLicenseNumber" type="string">
+      Driver license number
+    </ResponseField>
+    <ResponseField name="driverLicenseExpirationDate" type="string">
+      License expiration date
+    </ResponseField>
+    <ResponseField name="backgroundCheckStatus" type="string">
+      Background check status
+    </ResponseField>
+    <ResponseField name="isApproved" type="boolean">
+      Approval status
+    </ResponseField>
+    <ResponseField name="driverStatus" type="string">
+      Current driver operational status
+    </ResponseField>
+    <ResponseField name="createdAt" type="string">
+      Creation timestamp
+    </ResponseField>
+    <ResponseField name="updatedAt" type="string">
+      Last update timestamp
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## List Driver Profiles
+
+<api method="GET" path="/drivers">
+  Retrieves a paginated list of driver profiles with optional filters (admin only)
+</api>
+
+### Query Parameters
+
+<ParamField query="page" type="number" default="1">
+  Page number for pagination
+</ParamField>
+
+<ParamField query="limit" type="number" default="10">
+  Number of items per page
+</ParamField>
+
+<ParamField query="userId" type="string">
+  Filter by user UUID
+</ParamField>
+
+<ParamField query="driverLicenseNumber" type="string">
+  Filter by driver license number (1-50 characters)
+</ParamField>
+
+<ParamField query="backgroundCheckStatus" type="enum">
+  Filter by background check status
+  - `pending_background_check`
+  - `approved`
+  - `rejected`
+</ParamField>
+
+<ParamField query="isApproved" type="boolean">
+  Filter by approval status
+</ParamField>
+
+<ParamField query="driverStatus" type="enum">
+  Filter by driver operational status
+  - `active`
+  - `suspended`
+  - `on_vacation`
+  - `pending_docs`
+  - `deactivated`
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the operation was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message
+</ResponseField>
+
+<ResponseField name="data" type="array">
+  Array of driver profiles
+</ResponseField>
+
+<ResponseField name="meta" type="object">
+  Pagination metadata
+  <Expandable title="properties">
+    <ResponseField name="page" type="number">
+      Current page number
+    </ResponseField>
+    <ResponseField name="limit" type="number">
+      Items per page
+    </ResponseField>
+    <ResponseField name="total" type="number">
+      Total number of items
+    </ResponseField>
+    <ResponseField name="totalPages" type="number">
+      Total number of pages
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## Get Driver Profile
+
+<api method="GET" path="/drivers/{id}">
+  Retrieves a single driver profile by ID
+</api>
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  UUID of the driver profile
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the operation was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Driver profile details
+  <Expandable title="properties">
+    <ResponseField name="id" type="string">
+      Driver profile UUID
+    </ResponseField>
+    <ResponseField name="userId" type="string">
+      Associated user UUID
+    </ResponseField>
+    <ResponseField name="driverLicenseNumber" type="string">
+      Driver license number
+    </ResponseField>
+    <ResponseField name="driverLicenseExpirationDate" type="string">
+      License expiration date
+    </ResponseField>
+    <ResponseField name="driverLicensePictureUrl" type="string">
+      URL to license image
+    </ResponseField>
+    <ResponseField name="backgroundCheckStatus" type="string">
+      Background check status
+    </ResponseField>
+    <ResponseField name="backgroundCheckDate" type="string">
+      Background check date
+    </ResponseField>
+    <ResponseField name="isApproved" type="boolean">
+      Approval status
+    </ResponseField>
+    <ResponseField name="emergencyContactInfo" type="object">
+      Emergency contact information
+    </ResponseField>
+    <ResponseField name="driverStatus" type="string">
+      Current driver operational status
+    </ResponseField>
+    <ResponseField name="paidPriorityUntil" type="string">
+      Paid priority expiration date
+    </ResponseField>
+    <ResponseField name="createdAt" type="string">
+      Creation timestamp
+    </ResponseField>
+    <ResponseField name="updatedAt" type="string">
+      Last update timestamp
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## Update Driver Profile
+
+<api method="PATCH" path="/drivers/{id}">
+  Updates an existing driver profile. All fields are optional.
+</api>
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  UUID of the driver profile to update
+</ParamField>
+
+### Body Parameters
+
+<ParamField body="driverLicenseNumber" type="string">
+  New driver license number (1-50 characters)
+</ParamField>
+
+<ParamField body="driverLicenseExpirationDate" type="string">
+  New license expiration date (ISO 8601)
+</ParamField>
+
+<ParamField body="driverLicensePictureUrl" type="string">
+  New URL to driver license image
+</ParamField>
+
+<ParamField body="emergencyContactInfo" type="object">
+  Updated emergency contact information
+  <Expandable title="properties">
+    <ParamField body="name" type="string" required>
+      Contact name
+    </ParamField>
+    <ParamField body="phoneNumber" type="string" required>
+      Contact phone number
+    </ParamField>
+    <ParamField body="relationship" type="string" required>
+      Relationship to driver
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="driverStatus" type="enum">
+  New operational status
+  - `active`
+  - `suspended`
+  - `on_vacation`
+  - `pending_docs`
+  - `deactivated`
+</ParamField>
+
+<ParamField body="paidPriorityUntil" type="string">
+  New paid priority expiration date (ISO 8601)
+</ParamField>
+
+<ParamField body="backgroundCheckStatus" type="enum">
+  New background check status
+  - `pending_background_check`
+  - `approved`
+  - `rejected`
+</ParamField>
+
+<ParamField body="backgroundCheckDate" type="string">
+  New background check date (ISO 8601)
+</ParamField>
+
+<ParamField body="isApproved" type="boolean">
+  Updated approval status
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the operation was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Updated driver profile
+</ResponseField>
+
+---
+
+## Delete Driver Profile
+
+<api method="DELETE" path="/drivers/{id}">
+  Soft-deletes a driver profile. The profile is marked as deleted but retained in the database.
+</api>
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  UUID of the driver profile to delete
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the operation was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message
+</ResponseField>
+
+<ResponseField name="data" type="null">
+  Returns null for deleted resources
+</ResponseField>

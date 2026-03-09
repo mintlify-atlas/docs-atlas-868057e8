@@ -1,0 +1,655 @@
+---
+title: Architecture
+description: System architecture, module structure, and design patterns in Rodando Backend
+---
+
+## Overview
+
+Rodando Backend follows a **modular monolithic architecture** built on NestJS principles. The application is organized into independent, loosely-coupled modules that communicate through well-defined interfaces and domain events.
+
+## High-Level Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Client Applications                      │
+│         (Mobile Apps, Web Dashboard, Admin Panel)           │
+└─────────────────┬───────────────────────┬───────────────────┘
+                  │                       │
+            REST API                 WebSocket
+                  │                       │
+┌─────────────────▼───────────────────────▼───────────────────┐
+│                      API Layer (NestJS)                      │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │  Controllers & Gateways (HTTP/WebSocket endpoints)     │ │
+│  └────────────────────────────────────────────────────────┘ │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+┌──────────────────────────▼──────────────────────────────────┐
+│                    Business Logic Layer                      │
+│  ┌─────────────┐  ┌─────────────┐  ┌──────────────────┐   │
+│  │   Modules   │  │  Services   │  │  Orchestrators   │   │
+│  │  (Domain)   │  │ (Use Cases) │  │  (Workflows)     │   │
+│  └─────────────┘  └─────────────┘  └──────────────────┘   │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+┌──────────────────────────▼──────────────────────────────────┐
+│                   Event-Driven Layer                         │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │  EventEmitter2 (Domain Events & Listeners)             │ │
+│  │  • trip.created  • driver.assigned  • trip.completed  │ │
+│  └────────────────────────────────────────────────────────┘ │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+┌──────────────────────────▼──────────────────────────────────┐
+│                    Infrastructure Layer                      │
+│  ┌──────────────┐  ┌──────────────┐  ┌─────────────────┐  │
+│  │   TypeORM    │  │   Socket.IO  │  │   Notifications │  │
+│  │  (Database)  │  │  (Real-time) │  │  (Mail/SMS)     │  │
+│  └──────────────┘  └──────────────┘  └─────────────────┘  │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+                    ┌──────▼──────┐
+                    │  PostgreSQL  │
+                    └──────────────┘
+```
+
+## Core Modules
+
+The application is organized into feature modules, each handling a specific domain:
+
+### Application Modules (src/modules/)
+
+<AccordionGroup>
+  <Accordion title="Trip Module" icon="route">
+    Manages the complete trip lifecycle from request to completion.
+    
+    **Key Components:**
+    - `TripController`: REST endpoints for trip operations
+    - `TripService`: Business logic for trip state transitions
+    - `TripRepository`: Database operations
+    - Trip entities: `Trip`, `TripAssignment`, `TripEvent`
+    
+    **State Machine:**
+    ```
+    pending → assigning → assigned → arriving → 
+    arrived_pickup → in_progress → completed
+    ```
+    
+    **Responsibilities:**
+    - Trip estimation and fare calculation
+    - Driver assignment workflow
+    - Status transitions with validation
+    - Event emission for real-time updates
+    
+    **Key Files:**
+    - `src/modules/trip/controllers/trip.controller.ts:1`
+    - `src/modules/trip/services/trip.service.ts`
+  </Accordion>
+
+  <Accordion title="Auth Module" icon="key">
+    Handles authentication, authorization, and session management.
+    
+    **Key Components:**
+    - `AuthController`: Login, refresh, logout endpoints
+    - `AuthService`: JWT token generation and validation
+    - Guards: `JwtAuthGuard`, `RolesGuard`
+    - Strategies: JWT access and refresh token strategies
+    
+    **Authentication Flow:**
+    1. User sends credentials to `/api/auth/login`
+    2. Service validates and generates access + refresh tokens
+    3. Web clients receive tokens in HTTP-only cookies
+    4. Mobile clients receive tokens in response body
+    5. Access token used for API requests (expires in 15min)
+    6. Refresh token used to get new access tokens (expires in 7 days)
+    
+    **Session Types:**
+    - `WEB`: Cookie-based sessions for web dashboards
+    - `MOBILE`: Token-based sessions for mobile apps
+    - `API_CLIENT`: Token-based for third-party integrations
+    
+    **Key Files:**
+    - `src/modules/auth/controllers/auth.controller.ts:1`
+    - `src/modules/auth/services/auth.service.ts`
+  </Accordion>
+
+  <Accordion title="Drivers Availability Module" icon="car">
+    Tracks driver locations and online status in real-time.
+    
+    **Key Components:**
+    - `DriversAvailabilityService`: Location updates and queries
+    - `DriverAvailabilityRepository`: Geohash-based storage
+    - Scheduled tasks for offline detection
+    
+    **Geohash Implementation:**
+    - Driver locations encoded as geohash strings
+    - Enables efficient proximity queries
+    - Configurable precision for radius matching
+    
+    **Online Status:**
+    - Drivers send periodic "ping" updates
+    - TTL-based expiry (default: 120 seconds)
+    - Sweep job marks inactive drivers as offline
+    
+    **Key Features:**
+    - Find available drivers near pickup location
+    - Filter by vehicle type and service class
+    - Exclude drivers already in active trips
+    - Return ordered by distance
+  </Accordion>
+
+  <Accordion title="User Module" icon="user">
+    Manages user accounts, profiles, and roles.
+    
+    **User Roles:**
+    - `passenger`: Can request trips
+    - `driver`: Can accept and complete trips
+    - `admin`: Full system access
+    
+    **Key Entities:**
+    - `User`: Core user account data
+    - `UserProfile`: Extended profile information
+    - `Session`: Active user sessions
+    
+    **Relationships:**
+    - User → DriverProfile (if role = driver)
+    - User → Vehicle (drivers can have multiple vehicles)
+    - User → Trips (as passenger or driver)
+  </Accordion>
+
+  <Accordion title="Vehicles Module" icon="truck">
+    Manages vehicle information, types, and categories.
+    
+    **Structure:**
+    - `Vehicle`: Individual vehicle instances
+    - `VehicleType`: Economy, Premium, Luxury, etc.
+    - `VehicleCategory`: Sedan, SUV, Van, etc.
+    - `VehicleServiceClass`: Standard, Comfort, Business
+    
+    **Use Cases:**
+    - Vehicle registration for drivers
+    - Type-based fare calculation
+    - Service class filtering in trip matching
+  </Accordion>
+
+  <Accordion title="Transactions Module" icon="credit-card">
+    Handles financial transactions and payment processing.
+    
+    **Transaction Types:**
+    - Trip payments
+    - Driver earnings
+    - Refunds and adjustments
+    - Cash collections
+    
+    **Key Features:**
+    - Transaction history and audit trail
+    - Balance calculations
+    - Payment method support
+  </Accordion>
+
+  <Accordion title="Settings Modules" icon="cog">
+    Configuration and business rules.
+    
+    **Sub-modules:**
+    - **Price Policies**: Per-mile, per-minute, surge pricing
+    - **Zones**: Service area boundaries and rules
+    - **Cities**: Geographic configuration
+    - **Core Settings**: System-wide configuration
+    
+    **Database-Driven:**
+    All settings stored in database for runtime updates without code changes.
+  </Accordion>
+</AccordionGroup>
+
+### Infrastructure Modules (src/infrastructure/)
+
+<CardGroup cols={2}>
+  <Card title="Notifications" icon="bell">
+    **Mail Module**: Email notifications via SMTP
+    
+    **SMS Module**: SMS alerts via third-party providers
+    
+    Used for trip confirmations, driver alerts, etc.
+  </Card>
+  
+  <Card title="Queue Module" icon="list">
+    Background job processing
+    
+    Handles async tasks like notifications, reports, and batch operations
+  </Card>
+  
+  <Card title="Outbox Module" icon="inbox">
+    Transactional outbox pattern
+    
+    Ensures reliable event publishing with database consistency
+  </Card>
+  
+  <Card title="WebSocket Module" icon="wifi">
+    Socket.IO infrastructure
+    
+    Manages connections, rooms, and message broadcasting
+  </Card>
+</CardGroup>
+
+### Real-time Module (src/realtime/)
+
+The real-time module orchestrates WebSocket communications:
+
+**Gateways** (WebSocket endpoints):
+- `DriverAuthGateway`: Driver authentication and connection
+- `DriverAvailabilityGateway`: Location updates and status changes
+- `PassengerGateway`: Trip requests and updates for passengers
+- `AdminGateway`: System monitoring and control
+
+**Publishers** (Emit events to clients):
+- `TripRealtimePublisher`: Broadcasts trip state changes
+- `DriverAvailabilityRealtimePublisher`: Notifies availability updates
+- `AuthRealtimePublisher`: Handles auth events
+
+**Listeners** (React to domain events):
+- `TripEventsListener`: Listens to trip.* events
+- `DriverAvailabilityEventsListener`: Reacts to driver status changes
+- `AssignmentExpiryListener`: Handles timeout logic
+
+**Orchestrators** (Complex workflows):
+- `TripAssigningOrchestrator`: Manages driver matching and retry logic
+- `DriverAssignedAutoArrivingOrchestrator`: Auto-transitions to arriving state
+
+**Key File**: `src/realtime/realtime.module.ts:1`
+
+## Database Layer
+
+### TypeORM Configuration
+
+The database layer uses TypeORM with PostgreSQL:
+
+```typescript src/database/database.module.ts
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { DatabaseConfigService } from './database-config/database-config.service';
+
+TypeOrmModule.forRootAsync({
+  useFactory: async (configService: ConfigService, initService: DatabaseInitService) => {
+    await initService.ensureDatabaseExists();
+    return new DatabaseConfigService(configService).createTypeOrmOptions();
+  },
+})
+```
+
+**Features:**
+- Automatic database creation on startup
+- Entity auto-discovery from modules
+- Migration support (production)
+- Synchronize mode (development only)
+
+**Key File**: `src/database/database.module.ts:1`
+
+### Repository Pattern
+
+Each entity has a dedicated repository:
+
+```typescript
+import { BaseRepository } from 'src/common/repositories/base.repository';
+
+export class TripRepository extends BaseRepository<Trip> {
+  async findActiveForPassenger(passengerId: string): Promise<Trip | null> {
+    return this.findOne({
+      where: {
+        passengerId,
+        status: In(['pending', 'assigning', 'assigned', 'arriving', 'in_progress'])
+      }
+    });
+  }
+}
+```
+
+## API Response Structure
+
+All API responses follow a consistent format:
+
+```typescript src/common/dto/api-response.dto.ts
+export class ApiResponseDto<T, M = unknown> {
+  success: boolean;        // Operation status
+  message: string;         // Human-readable message
+  data?: T;               // Response payload
+  error?: {               // Error details (if success=false)
+    code?: string;
+    details?: any;
+  };
+  meta?: M;               // Metadata (e.g., pagination)
+}
+```
+
+**Key File**: `src/common/dto/api-response.dto.ts:1`
+
+**Success Response:**
+```json
+{
+  "success": true,
+  "message": "Trip created successfully",
+  "data": {
+    "id": "uuid-here",
+    "status": "pending",
+    ...
+  }
+}
+```
+
+**Error Response:**
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "details": ["pickupLocation is required"]
+  }
+}
+```
+
+## Event-Driven Architecture
+
+The application uses EventEmitter2 for loose coupling:
+
+### Event Flow
+
+```typescript
+// 1. Service emits domain event
+this.eventEmitter.emit('trip.created', {
+  tripId: trip.id,
+  passengerId: trip.passengerId,
+  pickupLocation: trip.pickupLocation
+});
+
+// 2. Multiple listeners react independently
+@OnEvent('trip.created')
+async handleTripCreated(event: TripCreatedEvent) {
+  // Send notification to passenger
+  await this.notificationService.sendTripConfirmation(event);
+}
+
+@OnEvent('trip.created')
+async handleTripCreatedForAnalytics(event: TripCreatedEvent) {
+  // Log analytics event
+  await this.analyticsService.trackTripRequest(event);
+}
+```
+
+**Key Configuration** in `src/app.module.ts:61`:
+```typescript
+EventEmitterModule.forRoot({
+  wildcard: true,      // Enable patterns like 'trip.*'
+  delimiter: '.',      // Event namespace separator
+  maxListeners: 20,    // Prevent memory leaks
+  global: true         // Available in all modules
+})
+```
+
+### Common Events
+
+- `trip.created` - New trip requested
+- `trip.assigning.started` - Matching drivers
+- `trip.assignment.offered` - Offer sent to driver
+- `trip.assignment.accepted` - Driver accepted
+- `trip.assignment.rejected` - Driver rejected
+- `trip.assignment.expired` - Offer timeout
+- `trip.completed` - Trip finished
+- `driver.status.changed` - Online/offline status
+- `driver.location.updated` - Location ping received
+
+## Design Patterns
+
+### 1. Repository Pattern
+- Abstracts database operations
+- Enables testing with mock repositories
+- Centralizes query logic
+
+### 2. Service Layer Pattern
+- Business logic separated from controllers
+- Single responsibility per service
+- Injected via dependency injection
+
+### 3. DTO Pattern
+- Data validation with class-validator
+- Type safety for API contracts
+- Auto-generated Swagger documentation
+
+### 4. Guard Pattern
+- Authentication and authorization checks
+- Reusable across controllers
+- Examples: `JwtAuthGuard`, `RolesGuard`
+
+### 5. Interceptor Pattern
+- Cross-cutting concerns
+- Response transformation
+- Example: `ApiResponseInterceptor` wraps all responses
+
+### 6. State Machine Pattern
+- Trip status transitions with validation
+- Prevents invalid state changes
+- Clear business rules
+
+### 7. Observer Pattern (EventEmitter)
+- Decoupled communication between modules
+- Multiple listeners for same event
+- Async processing
+
+## Technology Stack
+
+<Tabs>
+  <Tab title="Backend Framework">
+    **NestJS 11.x**
+    - Modular architecture
+    - Dependency injection
+    - Decorator-based
+    - TypeScript-first
+    
+    **Key Packages:**
+    - `@nestjs/common`: Core decorators and utilities
+    - `@nestjs/core`: Application context
+    - `@nestjs/platform-express`: HTTP server
+  </Tab>
+  
+  <Tab title="Database">
+    **PostgreSQL 14+**
+    - Relational data model
+    - ACID transactions
+    - Full-text search
+    - Geospatial support
+    
+    **TypeORM 0.3.x**
+    - Entity mapping
+    - Query builder
+    - Migrations
+    - Repository pattern
+  </Tab>
+  
+  <Tab title="Real-time">
+    **Socket.IO 4.x**
+    - WebSocket with fallbacks
+    - Room-based broadcasting
+    - Automatic reconnection
+    - Binary support
+    
+    **@nestjs/websockets**
+    - Gateway decorators
+    - Event listeners
+    - Custom adapters
+  </Tab>
+  
+  <Tab title="Authentication">
+    **Passport.js**
+    - Strategy-based auth
+    - JWT support
+    - Extensible
+    
+    **@nestjs/jwt**
+    - Token generation
+    - Token verification
+    - Refresh token flow
+    
+    **bcrypt**
+    - Password hashing
+    - Configurable rounds
+  </Tab>
+  
+  <Tab title="Validation">
+    **class-validator**
+    - Decorator-based validation
+    - Custom validators
+    - Nested object support
+    
+    **class-transformer**
+    - DTO transformation
+    - Type coercion
+    - Exclusion rules
+    
+    **Joi**
+    - Environment variable validation
+    - Schema definition
+  </Tab>
+  
+  <Tab title="Documentation">
+    **Swagger/OpenAPI**
+    - Auto-generated docs
+    - Interactive API explorer
+    - DTO schema generation
+    
+    **@nestjs/swagger**
+    - Decorators for documentation
+    - Multiple API versions
+    - Authentication support
+  </Tab>
+</Tabs>
+
+## Configuration Management
+
+The application uses NestJS ConfigModule:
+
+```typescript
+ConfigModule.forRoot({
+  isGlobal: true,
+  envFilePath: '.env',
+  validationSchema: Joi.object({
+    DB_HOST: Joi.string().required(),
+    DB_PORT: Joi.number().default(5432),
+    // ... more validation
+  }),
+})
+```
+
+**Benefits:**
+- Type-safe configuration
+- Validation on startup
+- Environment-specific settings
+- Centralized access via `ConfigService`
+
+## Scalability Considerations
+
+<CardGroup cols={2}>
+  <Card title="Horizontal Scaling" icon="arrows-left-right">
+    - Stateless API design
+    - Sticky sessions for WebSockets
+    - Redis adapter for Socket.IO clustering
+    - Database connection pooling
+  </Card>
+  
+  <Card title="Database Optimization" icon="database">
+    - Indexed queries (geohash, user IDs, trip status)
+    - Pagination for list endpoints
+    - Eager loading to prevent N+1 queries
+    - Caching for frequently accessed data
+  </Card>
+  
+  <Card title="Real-time Performance" icon="bolt">
+    - Room-based broadcasting (not global)
+    - Event filtering at gateway level
+    - Batch updates where possible
+    - WebSocket connection limits
+  </Card>
+  
+  <Card title="Async Processing" icon="clock">
+    - Event-driven for non-critical operations
+    - Queue for background jobs
+    - Scheduled tasks for cleanup
+    - Transactional outbox for reliability
+  </Card>
+</CardGroup>
+
+## Security Measures
+
+<Steps>
+  <Step title="Authentication">
+    - JWT with short-lived access tokens (15 min)
+    - Long-lived refresh tokens (7 days)
+    - HTTP-only cookies for web clients
+    - Token revocation on logout
+  </Step>
+  
+  <Step title="Authorization">
+    - Role-based access control (RBAC)
+    - Route guards on protected endpoints
+    - User ID validation from JWT
+    - Resource ownership checks
+  </Step>
+  
+  <Step title="Input Validation">
+    - DTO validation with class-validator
+    - Whitelist mode (strip unknown properties)
+    - SQL injection prevention (parameterized queries)
+    - XSS protection (input sanitization)
+  </Step>
+  
+  <Step title="Rate Limiting">
+    - Throttling with @nestjs/throttler
+    - Configurable limits per endpoint
+    - IP-based tracking
+    - Protection against DDoS
+  </Step>
+  
+  <Step title="CORS Configuration">
+    - Whitelist allowed origins
+    - Credentials support
+    - Preflight caching
+    - Method restrictions
+  </Step>
+</Steps>
+
+## Testing Strategy
+
+<Note>
+  Test files use the `.spec.ts` extension and are colocated with source files
+</Note>
+
+**Unit Tests:**
+- Services with mocked dependencies
+- Repository logic
+- Utility functions
+- Run with: `npm run test`
+
+**Integration Tests:**
+- Controller endpoints
+- Database operations
+- Authentication flows
+- Run with: `npm run test:e2e`
+
+**WebSocket Tests:**
+- Custom scripts in `scripts/` directory
+- Manual connection testing
+- Event flow verification
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="book" href="/api/auth/login">
+    Explore detailed endpoint documentation
+  </Card>
+  <Card title="Authentication Concept" icon="lock" href="/concepts/authentication">
+    Deep dive into JWT auth implementation
+  </Card>
+  <Card title="WebSocket Guide" icon="signal" href="/guides/websockets">
+    Learn about real-time features
+  </Card>
+  <Card title="Trip Lifecycle" icon="route" href="/concepts/trip-lifecycle">
+    Understand trip state machine
+  </Card>
+</CardGroup>

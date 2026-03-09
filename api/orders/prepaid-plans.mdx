@@ -1,0 +1,539 @@
+---
+title: 'Prepaid Plans'
+description: 'Manage prepaid trip packages and subscriptions'
+---
+
+## Overview
+
+Prepaid Plans allow users to purchase trip packages in advance with discounts or special benefits. Plans can include a specific number of trips, percentage discounts, or fixed amount discounts.
+
+## List Prepaid Plans
+
+Retrieve a paginated list of prepaid plans with optional filtering.
+
+<ParamField query="page" type="number" default="1">
+  Page number for pagination
+</ParamField>
+
+<ParamField query="limit" type="number" default="10">
+  Number of items per page
+</ParamField>
+
+<ParamField query="currency" type="string">
+  Filter by currency code (e.g., "CUP", "USD")
+</ParamField>
+
+<ParamField query="isActive" type="boolean">
+  Filter by active status ("true" or "false")
+</ParamField>
+
+<ParamField query="search" type="string">
+  Search by plan name
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X GET "https://api.rodando.com/prepaid-plans?page=1&limit=10&isActive=true" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+</RequestExample>
+
+<ResponseExample>
+```json Response
+{
+  "success": true,
+  "data": [
+    {
+      "id": "ee0e8400-e29b-41d4-a716-446655440000",
+      "name": "Pack 10 viajes -10%",
+      "description": "Incluye 10 viajes con 10% de descuento",
+      "tripsIncluded": 10,
+      "discountPct": "10.00",
+      "fixedDiscountAmount": null,
+      "expiresInDays": 90,
+      "price": "100.00",
+      "currency": "CUP",
+      "isActive": true,
+      "createdAt": "2026-03-01T00:00:00.000Z"
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "limit": 10,
+    "total": 5
+  }
+}
+```
+</ResponseExample>
+
+---
+
+## Get Plan Details
+
+Retrieve detailed information about a specific prepaid plan.
+
+<ParamField path="id" type="string" required>
+  Prepaid plan UUID
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X GET "https://api.rodando.com/prepaid-plans/ee0e8400-e29b-41d4-a716-446655440000" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+</RequestExample>
+
+<ResponseExample>
+```json Response
+{
+  "success": true,
+  "data": {
+    "id": "ee0e8400-e29b-41d4-a716-446655440000",
+    "name": "Pack 10 viajes -10%",
+    "description": "Incluye 10 viajes con 10% de descuento",
+    "tripsIncluded": 10,
+    "discountPct": "10.00",
+    "fixedDiscountAmount": null,
+    "expiresInDays": 90,
+    "price": "100.00",
+    "currency": "CUP",
+    "isActive": true,
+    "planFeatures": {
+      "tier": "standard",
+      "perks": ["priority-support"]
+    },
+    "createdAt": "2026-03-01T00:00:00.000Z",
+    "updatedAt": "2026-03-01T00:00:00.000Z"
+  }
+}
+```
+</ResponseExample>
+
+---
+
+## Create Prepaid Plan
+
+Create a new prepaid plan offering.
+
+<ParamField body="name" type="string" required>
+  Plan name (e.g., "Pack 10 viajes -10%")
+</ParamField>
+
+<ParamField body="description" type="string">
+  Detailed plan description
+</ParamField>
+
+<ParamField body="tripsIncluded" type="number">
+  Number of trips included in the plan (null if not applicable)
+</ParamField>
+
+<ParamField body="discountPct" type="string">
+  Percentage discount (0-100) as decimal string (e.g., "10.00")
+</ParamField>
+
+<ParamField body="fixedDiscountAmount" type="string">
+  Fixed discount amount in currency as decimal string
+</ParamField>
+
+<ParamField body="expiresInDays" type="number">
+  Number of days until plan expires (1-3650)
+</ParamField>
+
+<ParamField body="price" type="string" required>
+  Plan price as decimal string (e.g., "100.00")
+</ParamField>
+
+<ParamField body="currency" type="string" required>
+  ISO 4217 currency code (e.g., "CUP", "USD")
+</ParamField>
+
+<ParamField body="isActive" type="boolean" default="true">
+  Whether the plan is available for purchase
+</ParamField>
+
+<ParamField body="planFeatures" type="object">
+  Additional plan features and metadata
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X POST "https://api.rodando.com/prepaid-plans" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Pack 10 viajes -10%",
+    "description": "Incluye 10 viajes con 10% de descuento",
+    "tripsIncluded": 10,
+    "discountPct": "10.00",
+    "expiresInDays": 90,
+    "price": "100.00",
+    "currency": "CUP",
+    "isActive": true,
+    "planFeatures": {
+      "tier": "standard",
+      "perks": ["priority-support"]
+    }
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json Response
+{
+  "success": true,
+  "data": {
+    "id": "ee0e8400-e29b-41d4-a716-446655440000",
+    "name": "Pack 10 viajes -10%",
+    "description": "Incluye 10 viajes con 10% de descuento",
+    "tripsIncluded": 10,
+    "discountPct": "10.00",
+    "fixedDiscountAmount": null,
+    "expiresInDays": 90,
+    "price": "100.00",
+    "currency": "CUP",
+    "isActive": true,
+    "planFeatures": {
+      "tier": "standard",
+      "perks": ["priority-support"]
+    },
+    "createdAt": "2026-03-09T10:00:00.000Z",
+    "updatedAt": "2026-03-09T10:00:00.000Z"
+  }
+}
+```
+</ResponseExample>
+
+---
+
+## Update Prepaid Plan
+
+Update an existing prepaid plan's details.
+
+<ParamField path="id" type="string" required>
+  Prepaid plan UUID
+</ParamField>
+
+<ParamField body="name" type="string">
+  Updated plan name
+</ParamField>
+
+<ParamField body="description" type="string">
+  Updated description
+</ParamField>
+
+<ParamField body="price" type="string">
+  Updated price
+</ParamField>
+
+<ParamField body="isActive" type="boolean">
+  Updated active status
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X PATCH "https://api.rodando.com/prepaid-plans/ee0e8400-e29b-41d4-a716-446655440000" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "price": "95.00",
+    "description": "Incluye 10 viajes con 10% de descuento - Oferta especial"
+  }'
+```
+</RequestExample>
+
+---
+
+## Toggle Plan Active Status
+
+Activate or deactivate a prepaid plan.
+
+<ParamField path="id" type="string" required>
+  Prepaid plan UUID
+</ParamField>
+
+<ParamField path="value" type="boolean" required>
+  New active status (true or false)
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X PATCH "https://api.rodando.com/prepaid-plans/ee0e8400-e29b-41d4-a716-446655440000/active/false" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+</RequestExample>
+
+<ResponseExample>
+```json Response
+{
+  "success": true,
+  "data": {
+    "id": "ee0e8400-e29b-41d4-a716-446655440000",
+    "isActive": false,
+    "updatedAt": "2026-03-09T10:30:00.000Z"
+  }
+}
+```
+</ResponseExample>
+
+---
+
+## Purchase Plan with Cash
+
+Purchase a prepaid plan using cash at a collection point. This operation is idempotent when using the Idempotency-Key header.
+
+<ParamField body="planId" type="string" required>
+  UUID of the plan to purchase
+</ParamField>
+
+<ParamField body="buyerUserId" type="string" required>
+  UUID of the user making the purchase (driver or passenger)
+</ParamField>
+
+<ParamField body="collectionPointId" type="string" required>
+  UUID of the cash collection point where payment is made
+</ParamField>
+
+<ParamField body="collectedByUserId" type="string" required>
+  UUID of the staff member receiving the payment
+</ParamField>
+
+<ParamField header="Idempotency-Key" type="string">
+  Optional key to prevent duplicate purchases
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X POST "https://api.rodando.com/prepaid-plans/purchase" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: purchase-2026-03-09-user-770e8400" \
+  -d '{
+    "planId": "ee0e8400-e29b-41d4-a716-446655440000",
+    "buyerUserId": "770e8400-e29b-41d4-a716-446655440000",
+    "collectionPointId": "bb0e8400-e29b-41d4-a716-446655440000",
+    "collectedByUserId": "990e8400-e29b-41d4-a716-446655440000"
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json Response
+{
+  "success": true,
+  "data": {
+    "userPlanId": "ff0e8400-e29b-41d4-a716-446655440000",
+    "planId": "ee0e8400-e29b-41d4-a716-446655440000",
+    "userId": "770e8400-e29b-41d4-a716-446655440000",
+    "tripsRemaining": 10,
+    "activatedAt": "2026-03-09T10:00:00.000Z",
+    "expiresAt": "2026-06-07T10:00:00.000Z",
+    "status": "ACTIVE"
+  }
+}
+```
+</ResponseExample>
+
+---
+
+## Purchase Plan with Wallet
+
+Purchase a prepaid plan using the user's driver wallet balance. This operation is idempotent when using the Idempotency-Key header.
+
+<ParamField body="planId" type="string" required>
+  UUID of the plan to purchase
+</ParamField>
+
+<ParamField body="buyerUserId" type="string" required>
+  UUID of the user making the purchase (must have a driver wallet)
+</ParamField>
+
+<ParamField body="note" type="string">
+  Optional note or observation about the purchase
+</ParamField>
+
+<ParamField header="Idempotency-Key" type="string">
+  Optional key to prevent duplicate purchases
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X POST "https://api.rodando.com/prepaid-plans/purchase-wallet" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: purchase-wallet-2026-03-09-user-880e8400" \
+  -d '{
+    "planId": "ee0e8400-e29b-41d4-a716-446655440000",
+    "buyerUserId": "880e8400-e29b-41d4-a716-446655440000",
+    "note": "Monthly plan renewal"
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json Response
+{
+  "success": true,
+  "data": {
+    "userPlanId": "ff0e8400-e29b-41d4-a716-446655440000",
+    "planId": "ee0e8400-e29b-41d4-a716-446655440000",
+    "userId": "880e8400-e29b-41d4-a716-446655440000",
+    "tripsRemaining": 10,
+    "activatedAt": "2026-03-09T10:00:00.000Z",
+    "expiresAt": "2026-06-07T10:00:00.000Z",
+    "status": "ACTIVE",
+    "walletTransactionId": "gg0e8400-e29b-41d4-a716-446655440000"
+  }
+}
+```
+</ResponseExample>
+
+---
+
+## Get User's Active Plan
+
+Retrieve the best active prepaid plan for a specific user.
+
+<ParamField path="userId" type="string" required>
+  UUID of the user
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X GET "https://api.rodando.com/prepaid-plans/users/770e8400-e29b-41d4-a716-446655440000/active" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+</RequestExample>
+
+<ResponseExample>
+```json Response
+{
+  "success": true,
+  "data": {
+    "userPlanId": "ff0e8400-e29b-41d4-a716-446655440000",
+    "planId": "ee0e8400-e29b-41d4-a716-446655440000",
+    "planName": "Pack 10 viajes -10%",
+    "tripsRemaining": 7,
+    "discountPct": "10.00",
+    "activatedAt": "2026-03-09T10:00:00.000Z",
+    "expiresAt": "2026-06-07T10:00:00.000Z",
+    "status": "ACTIVE"
+  }
+}
+```
+</ResponseExample>
+
+---
+
+## List User's Active Plans
+
+Retrieve all active prepaid plans for a specific user, ordered by priority.
+
+<ParamField path="userId" type="string" required>
+  UUID of the user
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X GET "https://api.rodando.com/prepaid-plans/users/770e8400-e29b-41d4-a716-446655440000/actives" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+</RequestExample>
+
+<ResponseExample>
+```json Response
+{
+  "success": true,
+  "data": [
+    {
+      "userPlanId": "ff0e8400-e29b-41d4-a716-446655440000",
+      "planId": "ee0e8400-e29b-41d4-a716-446655440000",
+      "planName": "Pack 10 viajes -10%",
+      "tripsRemaining": 7,
+      "discountPct": "10.00",
+      "activatedAt": "2026-03-09T10:00:00.000Z",
+      "expiresAt": "2026-06-07T10:00:00.000Z",
+      "status": "ACTIVE"
+    },
+    {
+      "userPlanId": "gg0e8400-e29b-41d4-a716-446655440000",
+      "planId": "hh0e8400-e29b-41d4-a716-446655440000",
+      "planName": "Pack 5 viajes -5%",
+      "tripsRemaining": 3,
+      "discountPct": "5.00",
+      "activatedAt": "2026-03-01T10:00:00.000Z",
+      "expiresAt": "2026-05-30T10:00:00.000Z",
+      "status": "ACTIVE"
+    }
+  ]
+}
+```
+</ResponseExample>
+
+---
+
+## Delete Prepaid Plan
+
+Permanently delete a prepaid plan. This is a hard delete operation.
+
+<ParamField path="id" type="string" required>
+  Prepaid plan UUID
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X DELETE "https://api.rodando.com/prepaid-plans/ee0e8400-e29b-41d4-a716-446655440000" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+</RequestExample>
+
+<ResponseExample>
+```json Response
+{
+  "success": true,
+  "data": null
+}
+```
+</ResponseExample>
+
+---
+
+## Plan Features
+
+Prepaid plans support two types of discounts:
+
+### Percentage Discount
+
+Applies a percentage reduction to trip fares:
+
+```json
+{
+  "discountPct": "10.00"
+}
+```
+
+A 10% discount on a 100 CUP trip = 90 CUP charged.
+
+### Fixed Amount Discount
+
+Applies a fixed currency amount reduction:
+
+```json
+{
+  "fixedDiscountAmount": "15.00"
+}
+```
+
+A 15 CUP discount on a 100 CUP trip = 85 CUP charged.
+
+<Note>
+  Plans can have either percentage discount or fixed amount discount, not both. If both are provided, the system will use the one that provides the greater benefit to the user.
+</Note>
+
+---
+
+## Plan Status Lifecycle
+
+1. **ACTIVE**: Plan is purchased and can be used for trips
+2. **EXPIRED**: Plan has passed its expiration date
+3. **DEPLETED**: All included trips have been used (if applicable)
+4. **CANCELLED**: Plan was cancelled before completion

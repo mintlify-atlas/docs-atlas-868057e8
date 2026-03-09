@@ -1,0 +1,221 @@
+---
+title: 'Configuration'
+description: 'Configure your Rodando Backend application'
+---
+
+## Environment Variables
+
+The application uses environment variables for configuration. Copy `.env.example` to `.env` and configure the following sections:
+
+### Server Configuration
+
+```bash
+# Server port
+PORT=3000
+
+# Allowed CORS origins (comma-separated)
+CORS_ORIGINS=http://localhost:8100
+
+# Runtime environment
+NODE_ENV=development
+```
+
+<Note>
+  In production, set `NODE_ENV=production` to enable production optimizations.
+</Note>
+
+### Database Configuration
+
+```bash
+# PostgreSQL connection
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=your_password
+DB_NAME=rodando
+
+# Database behavior
+DB_SYNCHRONIZE=true
+DB_LOGGING=true
+RUN_MIGRATIONS=true
+MODE=DEV
+```
+
+<Warning>
+  Never use `DB_SYNCHRONIZE=true` in production! It can cause data loss. Use migrations instead.
+</Warning>
+
+**Configuration options:**
+
+| Variable | Description | Default |
+|----------|-------------|----------|
+| `DB_HOST` | Database server hostname | `localhost` |
+| `DB_PORT` | Database server port | `5432` |
+| `DB_USER` | Database username | `postgres` |
+| `DB_PASSWORD` | Database password | - |
+| `DB_NAME` | Database name | `rodando` |
+| `DB_SYNCHRONIZE` | Auto-sync schema (dev only) | `false` |
+| `DB_LOGGING` | Enable SQL query logging | `false` |
+| `RUN_MIGRATIONS` | Run migrations on startup | `false` |
+
+### JWT Configuration
+
+```bash
+# Access Token
+JWT_ACCESS_SECRET=7Uuokmo0vGuAK8wNGMG2TBCQxSY8fLTd
+JWT_ACCESS_EXPIRES_IN=15m
+
+# Refresh Token
+JWT_REFRESH_SECRET=FtO2UvkmNi2AMtlBVefMRxpWbvY5XpwV
+JWT_REFRESH_EXPIRES_IN=7d
+
+# Optional but recommended
+JWT_ISSUER=nest-uber-app-backend
+JWT_AUDIENCE=nest-uber-app-frontend
+```
+
+<Warning>
+  Generate strong, unique secrets for production! Never use the example values.
+</Warning>
+
+**Token configuration:**
+
+- **Access Token**: Short-lived token for API requests (e.g., 15 minutes)
+- **Refresh Token**: Long-lived token for obtaining new access tokens (e.g., 7 days)
+- **Issuer**: Identifies who issued the token
+- **Audience**: Identifies the intended recipient
+
+### Cookie Settings
+
+```bash
+COOKIE_DOMAIN=
+COOKIE_PATH=/
+COOKIE_SECURE=false
+COOKIE_SAME_SITE=lax
+COOKIE_HTTP_ONLY=true
+```
+
+<Note>
+  Set `COOKIE_SECURE=true` in production when using HTTPS.
+</Note>
+
+### Rate Limiting
+
+```bash
+# Throttling configuration
+RATE_LIMIT_TTL=60        # Time window in seconds
+RATE_LIMIT_MAX=10        # Max requests per window
+```
+
+These settings protect your API from abuse by limiting the number of requests a client can make.
+
+### Security Configuration
+
+```bash
+# Bcrypt password hashing
+BCRYPT_SALT_ROUNDS=12
+
+# Driver availability tracking
+DA_PRESENCE_TTL_SEC=120   # Offline after 120s without ping
+DA_SWEEP_BATCH=1000       # Batch size for presence sweeps
+```
+
+**Security best practices:**
+
+- Higher `BCRYPT_SALT_ROUNDS` = more secure but slower (10-12 recommended)
+- Adjust `DA_PRESENCE_TTL_SEC` based on your WebSocket ping interval
+
+### Swagger Documentation
+
+```bash
+# Enable/disable Swagger UI
+SWAGGER_ENABLED=true
+SWAGGER_ENABLE_AUTH=true
+SWAGGER_ENABLE_USERS=true
+
+# Main API documentation
+SWAGGER_TITLE_API=Uber-app-backend
+SWAGGER_VERSION_API=1.0
+
+# Auth documentation
+SWAGGER_TITLE_DOCS_AUTH=Authentication
+SWAGGER_VERSION_DOCS_AUTH=1.0-auth
+SWAGGER_PATH_DOCS_AUTH=docs/auth
+
+# Users documentation
+SWAGGER_TITLE_DOCS_USERS=Users
+SWAGGER_VERSION_DOCS_USERS=1.0-users
+SWAGGER_PATH_DOCS_USERS=docs/users
+```
+
+<Tip>
+  Disable Swagger in production for security: `SWAGGER_ENABLED=false`
+</Tip>
+
+## Configuration Validation
+
+The application validates environment variables on startup using Joi schema validation. If required variables are missing or invalid, the application will fail to start with a descriptive error.
+
+**Required variables:**
+- `DB_HOST`
+- `DB_USER`
+- `DB_PASSWORD`
+- `DB_NAME`
+
+## CORS Configuration
+
+CORS is configured in `main.ts` to allow requests from specific origins:
+
+```typescript
+CORS_ORIGINS=http://localhost:8100,https://app.example.com
+```
+
+Multiple origins can be specified by separating them with commas.
+
+**CORS settings:**
+- Allowed methods: GET, HEAD, PUT, PATCH, POST, DELETE, OPTIONS
+- Credentials: Enabled (supports cookies and authentication)
+- Max age: 86400 seconds (24 hours)
+
+## Environment-Specific Configuration
+
+<Tabs>
+  <Tab title="Development">
+    ```bash
+    NODE_ENV=development
+    DB_SYNCHRONIZE=true
+    DB_LOGGING=true
+    SWAGGER_ENABLED=true
+    COOKIE_SECURE=false
+    ```
+  </Tab>
+  <Tab title="Production">
+    ```bash
+    NODE_ENV=production
+    DB_SYNCHRONIZE=false
+    DB_LOGGING=false
+    SWAGGER_ENABLED=false
+    COOKIE_SECURE=true
+    RUN_MIGRATIONS=true
+    ```
+  </Tab>
+  <Tab title="Testing">
+    ```bash
+    NODE_ENV=test
+    DB_SYNCHRONIZE=true
+    DB_LOGGING=false
+    SWAGGER_ENABLED=false
+    ```
+  </Tab>
+</Tabs>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Database Setup" icon="database" href="/guides/database-setup">
+    Configure database and run migrations
+  </Card>
+  <Card title="WebSockets" icon="satellite-dish" href="/guides/websockets">
+    Set up real-time communication
+  </Card>
+</CardGroup>

@@ -1,0 +1,459 @@
+---
+title: 'Orders'
+description: 'Manage payment orders for trips'
+---
+
+## Overview
+
+Orders represent payment requests for trips. They track the payment lifecycle from creation to confirmation, including refunds and commission adjustments.
+
+## List Orders
+
+<ParamField query="page" type="number" default="1">
+  Page number for pagination
+</ParamField>
+
+<ParamField query="limit" type="number" default="10">
+  Number of items per page
+</ParamField>
+
+<ParamField query="status" type="string">
+  Filter by order status (PENDING, PAID, FAILED, REFUNDED, CANCELLED)
+</ParamField>
+
+<ParamField query="passengerId" type="string">
+  Filter by passenger UUID
+</ParamField>
+
+<ParamField query="minAmount" type="number">
+  Minimum order amount
+</ParamField>
+
+<ParamField query="maxAmount" type="number">
+  Maximum order amount
+</ParamField>
+
+<ParamField query="startDate" type="string">
+  Start date for date range filter (ISO format)
+</ParamField>
+
+<ParamField query="endDate" type="string">
+  End date for date range filter (ISO format)
+</ParamField>
+
+<ParamField query="search" type="string">
+  Search by order ID or passenger email/name
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X GET "https://api.rodando.com/orders?page=1&limit=10&status=PAID" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+</RequestExample>
+
+<ResponseExample>
+```json Response
+{
+  "success": true,
+  "data": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "tripId": "660e8400-e29b-41d4-a716-446655440000",
+      "passengerId": "770e8400-e29b-41d4-a716-446655440000",
+      "driverId": "880e8400-e29b-41d4-a716-446655440000",
+      "requestedAmount": "120.00",
+      "paymentType": "CASH",
+      "status": "PAID",
+      "currency": "CUP",
+      "createdAt": "2026-03-09T10:00:00.000Z",
+      "updatedAt": "2026-03-09T10:30:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 100
+  }
+}
+```
+</ResponseExample>
+
+---
+
+## Get Order Details
+
+Retrieve detailed information about a specific order.
+
+<ParamField path="id" type="string" required>
+  Order UUID
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X GET "https://api.rodando.com/orders/550e8400-e29b-41d4-a716-446655440000" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+</RequestExample>
+
+<ResponseExample>
+```json Response
+{
+  "success": true,
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "tripId": "660e8400-e29b-41d4-a716-446655440000",
+    "passengerId": "770e8400-e29b-41d4-a716-446655440000",
+    "driverId": "880e8400-e29b-41d4-a716-446655440000",
+    "requestedAmount": "120.00",
+    "paymentType": "CASH",
+    "status": "PAID",
+    "currency": "CUP",
+    "paymentIntentId": "pi_12345",
+    "createdAt": "2026-03-09T10:00:00.000Z",
+    "updatedAt": "2026-03-09T10:30:00.000Z"
+  }
+}
+```
+</ResponseExample>
+
+---
+
+## Create Cash Order
+
+Create a cash payment order when a trip is completed. This operation is idempotent based on the trip ID.
+
+<ParamField path="tripId" type="string" required>
+  UUID of the trip
+</ParamField>
+
+<ParamField body="tripId" type="string" required>
+  UUID of the trip (must match path parameter)
+</ParamField>
+
+<ParamField body="passengerId" type="string" required>
+  UUID of the passenger
+</ParamField>
+
+<ParamField body="driverId" type="string" required>
+  UUID of the driver
+</ParamField>
+
+<ParamField body="requestedAmount" type="string" required>
+  Total amount to charge (decimal string, e.g., "120.00")
+</ParamField>
+
+<ParamField body="currency" type="string" default="CUP">
+  ISO 4217 currency code (3 letters)
+</ParamField>
+
+<ParamField body="status" type="string">
+  Initial order status
+</ParamField>
+
+<ParamField body="paymentIntentId" type="string">
+  Payment gateway intent ID (optional)
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X POST "https://api.rodando.com/orders/660e8400-e29b-41d4-a716-446655440000/trips" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tripId": "660e8400-e29b-41d4-a716-446655440000",
+    "passengerId": "770e8400-e29b-41d4-a716-446655440000",
+    "driverId": "880e8400-e29b-41d4-a716-446655440000",
+    "requestedAmount": "120.00",
+    "currency": "CUP"
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json Response
+{
+  "success": true,
+  "message": "Order creada.",
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "tripId": "660e8400-e29b-41d4-a716-446655440000",
+    "passengerId": "770e8400-e29b-41d4-a716-446655440000",
+    "driverId": "880e8400-e29b-41d4-a716-446655440000",
+    "requestedAmount": "120.00",
+    "paymentType": "CASH",
+    "status": "PENDING",
+    "currency": "CUP",
+    "createdAt": "2026-03-09T10:00:00.000Z",
+    "updatedAt": "2026-03-09T10:00:00.000Z"
+  }
+}
+```
+</ResponseExample>
+
+---
+
+## Confirm Cash Order
+
+Confirm that a cash payment has been received. This applies the commission to the driver's wallet and marks the order as paid. This operation is idempotent.
+
+<ParamField path="orderId" type="string" required>
+  UUID of the order
+</ParamField>
+
+<ParamField body="confirmedByUserId" type="string" required>
+  UUID of the staff member confirming the payment
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X PATCH "https://api.rodando.com/orders/550e8400-e29b-41d4-a716-446655440000/confirm-cash" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "confirmedByUserId": "990e8400-e29b-41d4-a716-446655440000"
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json Response
+{
+  "success": true,
+  "message": "Order confirmada (PAID) y comisión aplicada.",
+  "data": {
+    "orderId": "550e8400-e29b-41d4-a716-446655440000",
+    "status": "PAID",
+    "alreadyPaid": false,
+    "transactionId": "aa0e8400-e29b-41d4-a716-446655440000"
+  }
+}
+```
+</ResponseExample>
+
+---
+
+## Update Order
+
+Partially update an order's fields.
+
+<ParamField path="id" type="string" required>
+  Order UUID
+</ParamField>
+
+<ParamField body="status" type="string">
+  Updated order status
+</ParamField>
+
+<ParamField body="paymentIntentId" type="string">
+  Payment gateway intent ID
+</ParamField>
+
+<ParamField body="failureReason" type="string">
+  Reason for payment failure
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X PATCH "https://api.rodando.com/orders/550e8400-e29b-41d4-a716-446655440000" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "FAILED",
+    "failureReason": "card_declined"
+  }'
+```
+</RequestExample>
+
+---
+
+## Immediate Refund
+
+Process an immediate reversal for a paid order within the policy window. If outside the window, a normal refund flow must be used.
+
+<ParamField path="id" type="string" required>
+  Order UUID
+</ParamField>
+
+<ParamField body="adminId" type="string" required>
+  UUID of the admin requesting the refund
+</ParamField>
+
+<ParamField body="reason" type="string">
+  Reason for the refund
+</ParamField>
+
+<ParamField body="policyWindowMinutes" type="number" default="15">
+  Time window in minutes for immediate reversal eligibility
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X POST "https://api.rodando.com/orders/550e8400-e29b-41d4-a716-446655440000/immediate-refund" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "adminId": "990e8400-e29b-41d4-a716-446655440000",
+    "reason": "Customer complaint",
+    "policyWindowMinutes": 15
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json Response
+{
+  "success": true,
+  "message": "Immediate reversal processed",
+  "data": {
+    "orderId": "550e8400-e29b-41d4-a716-446655440000",
+    "reverted": true,
+    "forceNormalRefund": false
+  }
+}
+```
+</ResponseExample>
+
+---
+
+## Create Normal Refund
+
+Create a normal (cash) refund for an order. This creates a cash collection record for off-platform payment.
+
+<ParamField path="id" type="string" required>
+  Order UUID
+</ParamField>
+
+<ParamField body="adminId" type="string" required>
+  UUID of the admin requesting the refund
+</ParamField>
+
+<ParamField body="collectionPointId" type="string" required>
+  UUID of the cash collection point for the refund
+</ParamField>
+
+<ParamField body="reason" type="string">
+  Reason for the refund
+</ParamField>
+
+<ParamField body="amount" type="number">
+  Partial refund amount (decimal). If omitted, full refund is processed
+</ParamField>
+
+<ParamField body="idempotencyKey" type="string">
+  Optional key to ensure idempotent refund processing
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X POST "https://api.rodando.com/orders/550e8400-e29b-41d4-a716-446655440000/refunds" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "adminId": "990e8400-e29b-41d4-a716-446655440000",
+    "collectionPointId": "bb0e8400-e29b-41d4-a716-446655440000",
+    "reason": "Service issue",
+    "amount": 50.00
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json Response
+{
+  "success": true,
+  "message": "Refund request processed",
+  "data": {
+    "orderId": "550e8400-e29b-41d4-a716-446655440000",
+    "refundAmount": 50.00,
+    "collectionRecordId": "cc0e8400-e29b-41d4-a716-446655440000"
+  }
+}
+```
+</ResponseExample>
+
+---
+
+## Adjust Commission
+
+Apply a post-facto commission adjustment to an order. This is idempotent by order ID and adjustment sequence number.
+
+<ParamField path="id" type="string" required>
+  Order UUID
+</ParamField>
+
+<ParamField body="adjustmentSeq" type="string" required>
+  Unique adjustment sequence identifier (up to 60 characters) for idempotency
+</ParamField>
+
+<ParamField body="deltaFee" type="number">
+  Direct commission delta (positive = charge more; negative = refund). Provide either deltaFee or newFee
+</ParamField>
+
+<ParamField body="newFee" type="number">
+  New total commission amount. The delta is calculated as newFee - originalFee. Provide either deltaFee or newFee
+</ParamField>
+
+<ParamField body="reason" type="string">
+  Reason for the adjustment
+</ParamField>
+
+<ParamField body="maxAbsDeltaAllowed" type="number">
+  Safety threshold to prevent large accidental adjustments (must be >= 0)
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X POST "https://api.rodando.com/orders/550e8400-e29b-41d4-a716-446655440000/commission-adjustments" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "adjustmentSeq": "adj-2026-03-09-001",
+    "deltaFee": 5.50,
+    "reason": "Additional service fee",
+    "maxAbsDeltaAllowed": 10.00
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json Response
+{
+  "success": true,
+  "message": "Commission adjusted successfully",
+  "data": {
+    "orderId": "550e8400-e29b-41d4-a716-446655440000",
+    "adjustmentId": "dd0e8400-e29b-41d4-a716-446655440000",
+    "deltaFee": 5.50,
+    "alreadyExisted": false
+  }
+}
+```
+</ResponseExample>
+
+---
+
+## Delete Order
+
+Soft-delete an order. The order remains in the database but is marked as deleted.
+
+<ParamField path="id" type="string" required>
+  Order UUID
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X DELETE "https://api.rodando.com/orders/550e8400-e29b-41d4-a716-446655440000" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+</RequestExample>
+
+<ResponseExample>
+```json Response
+{
+  "success": true,
+  "message": "Order soft-deleted",
+  "data": null
+}
+```
+</ResponseExample>

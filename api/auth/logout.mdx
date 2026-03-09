@@ -1,0 +1,121 @@
+---
+title: 'Logout'
+api: 'POST /auth/logout'
+---
+
+Revoke the current refresh token and end the user session. This endpoint invalidates the session and clears authentication cookies.
+
+## Authentication
+
+This endpoint is public but requires a refresh token in the `refreshToken` HttpOnly cookie.
+
+## Request Body
+
+No request body required. The refresh token is read from cookies.
+
+## Response
+
+This endpoint returns **204 No Content** on successful logout.
+
+## Error Responses
+
+The logout endpoint is designed to be fault-tolerant and will attempt to clean up even if the token is invalid or expired. However, certain conditions may occur:
+
+<ResponseField name="Session Not Found" type="warning">
+  If the session associated with the refresh token is not found in the database, the logout will still proceed to clear the cookie. This is logged as a debug message but does not return an error to the client.
+</ResponseField>
+
+<ResponseField name="Invalid Token" type="warning">
+  If the refresh token cannot be verified (malformed, expired, etc.), the logout will still proceed to clear the cookie. This is logged as a warning but does not return an error to the client.
+</ResponseField>
+
+## Examples
+
+### Logout (Web)
+
+```bash
+curl -X POST https://api.rodando.com/auth/logout \
+  -H "Cookie: refreshToken=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
+### Logout (Mobile/API - Manual Cookie)
+
+```bash
+curl -X POST https://api.rodando.com/auth/logout \
+  -H "Cookie: refreshToken=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
+### Successful Response
+
+```
+HTTP/1.1 204 No Content
+Set-Cookie: refreshToken=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax
+```
+
+## Behavior
+
+### Session Revocation
+When logout is called with a valid refresh token:
+
+1. The JWT is verified and the session ID (`jti`) is extracted
+2. The session is located in the database
+3. The session is marked as revoked with metadata:
+   - `revoked`: set to `true`
+   - `revokedAt`: current timestamp
+   - `revokedReason`: set to `user_logout`
+   - `lastActivityAt`: updated to current timestamp
+4. A `SessionRevoked` event is emitted to disconnect any active WebSocket connections
+5. The `refreshToken` cookie is cleared
+
+### Fault Tolerance
+The logout endpoint is designed to always succeed from the client's perspective:
+
+- **Invalid token**: Cookie is still cleared, no error returned
+- **Expired token**: Cookie is still cleared, no error returned  
+- **Session not found**: Cookie is still cleared, no error returned
+- **Database error**: Cookie is still cleared, error is logged but not returned
+
+This ensures that users can always "logout" even if their session is already invalid.
+
+## Security Considerations
+
+### Event Emission
+On successful logout, a `SessionRevoked` event is emitted with:
+- `userId`: The ID of the user who logged out
+- `sid`: The session ID that was revoked
+- `reason`: Set to `user_logout`
+- `at`: Timestamp of the logout
+
+This event is consumed by other parts of the system to:
+- Disconnect active WebSocket connections for the session
+- Log security audit trails
+- Trigger user-facing notifications if needed
+
+### Cookie Clearing
+The `refreshToken` cookie is cleared with the same configuration used when it was set:
+- `httpOnly`: true (prevents JavaScript access)
+- `secure`: true in production (HTTPS only)
+- `sameSite`: 'lax' or configured value
+- `domain`: production domain or undefined for development
+- `path`: '/' or configured path
+
+### Metadata Tracking
+The revoked session retains important metadata for security analysis:
+- When it was revoked (`revokedAt`)
+- Why it was revoked (`revokedReason`)
+- Last activity timestamp
+- Original device and location information
+
+This helps with:
+- Detecting suspicious logout patterns
+- Auditing user sessions
+- Investigating security incidents
+
+## Notes
+
+- The endpoint always returns **204 No Content** regardless of whether the token was valid
+- This prevents information leakage about session validity
+- The `refreshToken` cookie is cleared even if the session was already revoked
+- Any active WebSocket connections associated with the session will be disconnected
+- After logout, the user must login again to obtain new tokens
+- The access token is **not** invalidated server-side (it will expire naturally based on its TTL)

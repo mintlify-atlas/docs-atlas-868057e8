@@ -1,0 +1,446 @@
+---
+title: 'WebSockets'
+description: 'Real-time communication with Socket.io'
+---
+
+## Overview
+
+Rodando Backend uses **Socket.io** for real-time, bidirectional communication. The application provides separate WebSocket namespaces for different user types:
+
+- `/drivers` - Driver availability and location tracking
+- `/passengers` - Passenger trip updates
+- `/admin` - Administrative dashboard updates
+
+## Architecture
+
+The WebSocket implementation is built with:
+- **@nestjs/websockets** - NestJS WebSocket support
+- **@nestjs/platform-socket.io** - Socket.io adapter
+- **socket.io** - Real-time engine
+
+## Gateway Configuration
+
+### Driver Availability Gateway
+
+Handles driver location updates, status changes, and trip assignments:
+
+```typescript
+@WebSocketGateway({
+  namespace: '/drivers',
+  cors: { origin: '*', credentials: true },
+  pingTimeout: 20000,
+  pingInterval: 25000,
+})
+export class DriverAvailabilityGateway {}
+```
+
+**Configuration:**
+- **Namespace**: `/drivers`
+- **Ping Timeout**: 20 seconds
+- **Ping Interval**: 25 seconds
+- **CORS**: Enabled with credentials
+
+### Passenger Gateway
+
+Handles passenger trip updates and notifications:
+
+```typescript
+@WebSocketGateway({ 
+  namespace: '/passengers', 
+  cors: true 
+})
+export class PassengerGateway {}
+```
+
+**Configuration:**
+- **Namespace**: `/passengers`
+- **CORS**: Enabled
+
+## Authentication
+
+All WebSocket connections require JWT authentication:
+
+<Steps>
+  <Step title="Client sends token">
+    Token can be provided in two ways:
+    
+    ```javascript
+    // Option 1: Using auth object
+    const socket = io('http://localhost:3000/drivers', {
+      auth: {
+        token: 'your-jwt-access-token'
+      }
+    });
+
+    // Option 2: Using Authorization header
+    const socket = io('http://localhost:3000/drivers', {
+      extraHeaders: {
+        'Authorization': 'Bearer your-jwt-access-token'
+      }
+    });
+    ```
+  </Step>
+
+  <Step title="Server validates token">
+    The gateway extracts and verifies the JWT:
+    
+    ```typescript
+    const token = client.handshake.auth?.token || 
+      client.handshake.headers?.authorization?.replace(/^Bearer\s+/i, '');
+    
+    const payload = this.tokenService.verifyAccessToken(token);
+    ```
+  </Step>
+
+  <Step title="User and session validation">
+    - Verifies user exists and is active
+    - Checks user type matches the namespace
+    - Validates session is not revoked
+    - Ensures access token has not expired
+  </Step>
+
+  <Step title="Connection established">
+    On success, the client joins appropriate rooms and receives a `hello` event:
+    
+    ```javascript
+    socket.on('hello', (data) => {
+      console.log('Connected:', data); // { ok: true, nsp: '/drivers' }
+    });
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+  If authentication fails, the connection is immediately disconnected.
+</Warning>
+
+## Rooms and Topics
+
+Clients are automatically joined to specific rooms based on their identity:
+
+### Driver Rooms
+
+```typescript
+// Individual driver room
+await client.join(Rooms.driver(userId)); // "driver:{userId}"
+
+// Session-specific room
+await client.join(`session:${sid}`); // "session:{sessionId}"
+```
+
+### Passenger Rooms
+
+```typescript
+// Individual passenger room
+await client.join(Rooms.passenger(userId)); // "passenger:{userId}"
+
+// Session-specific room
+await client.join(`session:${sid}`); // "session:{sessionId}"
+```
+
+### Admin Rooms
+
+```typescript
+// Broadcast to all admins monitoring drivers
+this.server.to('admin:drivers').emit('driver:availability:update', data);
+```
+
+## Driver Events
+
+### Client → Server Events
+
+#### Update Driver Status
+
+```javascript
+socket.emit('driver:status:update', {
+  availabilityStatus: 'AVAILABLE' // or 'BUSY', 'OFFLINE'
+}, (response) => {
+  console.log('Status updated:', response);
+});
+```
+
+**DTO:**
+```typescript
+class UpdateDriverStatusDto {
+  availabilityStatus: 'AVAILABLE' | 'BUSY' | 'OFFLINE';
+}
+```
+
+#### Update Driver Location
+
+```javascript
+socket.emit('driver:location:ping', {
+  latitude: 40.7128,
+  longitude: -74.0060
+}, (response) => {
+  console.log('Location updated:', response);
+});
+```
+
+**DTO:**
+```typescript
+class UpdateDriverLocationDto {
+  latitude: number;
+  longitude: number;
+}
+```
+
+#### Set Current Trip
+
+```javascript
+socket.emit('driver:trip:set', {
+  tripId: '123e4567-e89b-12d3-a456-426614174000'
+}, (response) => {
+  console.log('Trip assigned:', response);
+});
+```
+
+**DTO:**
+```typescript
+class UpdateDriverTripDto {
+  tripId: string | null; // null to clear trip
+}
+```
+
+### Server → Client Events
+
+#### Availability Update
+
+```javascript
+socket.on('driver:availability:update', (data) => {
+  console.log('Availability changed:', data);
+});
+```
+
+**Payload:**
+```typescript
+{
+  driverId: string;
+  availabilityStatus: string;
+  isAvailableForTrips: boolean;
+  availabilityReason: string;
+  // ... other driver availability fields
+}
+```
+
+#### Location Update
+
+```javascript
+socket.on('driver:location:update', (data) => {
+  console.log('Location:', data);
+});
+```
+
+**Payload:**
+```typescript
+{
+  driverId: string;
+  lastLocation: {
+    type: 'Point';
+    coordinates: [longitude, latitude];
+  };
+  lastLocationTimestamp: Date;
+}
+```
+
+#### Trip Update
+
+```javascript
+socket.on('driver:trip:update', (data) => {
+  console.log('Trip status:', data);
+});
+```
+
+**Payload:**
+```typescript
+{
+  driverId: string;
+  currentTripId: string | null;
+  availabilityReason: string;
+  isAvailableForTrips: boolean;
+}
+```
+
+## Connection Lifecycle
+
+<Steps>
+  <Step title="Connection">
+    ```javascript
+    const socket = io('http://localhost:3000/drivers', {
+      auth: { token: accessToken }
+    });
+
+    socket.on('connect', () => {
+      console.log('Connected:', socket.id);
+    });
+    ```
+  </Step>
+
+  <Step title="Authentication">
+    Server validates JWT and user permissions:
+    - Verifies token signature
+    - Checks user type and status
+    - Validates session
+  </Step>
+
+  <Step title="Room Assignment">
+    Client automatically joins:
+    - User-specific room
+    - Session-specific room
+  </Step>
+
+  <Step title="Active Communication">
+    Client can now:
+    - Send events to server
+    - Receive broadcasts
+    - Get acknowledgments
+  </Step>
+
+  <Step title="Disconnection">
+    ```javascript
+    socket.on('disconnect', (reason) => {
+      console.log('Disconnected:', reason);
+    });
+    ```
+
+    Server logs disconnection with user context.
+  </Step>
+</Steps>
+
+## Testing WebSocket Connections
+
+The project includes test scripts for WebSocket functionality:
+
+```bash
+# Test driver WebSocket connection
+npm run ws:test:da:driver
+
+# Test admin WebSocket connection
+npm run ws:test:da:admin
+
+# Test passenger WebSocket connection
+npm run ws:test:trip:passenger
+
+# Test full trip flow
+npm run ws:test:trip:flow
+```
+
+## Client Example
+
+Here's a complete example of connecting as a driver:
+
+```javascript
+import { io } from 'socket.io-client';
+
+const socket = io('http://localhost:3000/drivers', {
+  auth: {
+    token: 'your-jwt-access-token'
+  },
+  transports: ['websocket']
+});
+
+// Connection events
+socket.on('connect', () => {
+  console.log('Connected!');
+});
+
+socket.on('hello', (data) => {
+  console.log('Handshake:', data);
+});
+
+// Update location every 10 seconds
+setInterval(() => {
+  navigator.geolocation.getCurrentPosition((position) => {
+    socket.emit('driver:location:ping', {
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude
+    }, (ack) => {
+      console.log('Location ACK:', ack);
+    });
+  });
+}, 10000);
+
+// Listen for availability updates
+socket.on('driver:availability:update', (data) => {
+  console.log('Availability updated:', data);
+});
+
+// Handle disconnection
+socket.on('disconnect', (reason) => {
+  console.log('Disconnected:', reason);
+});
+
+// Error handling
+socket.on('error', (error) => {
+  console.error('Socket error:', error);
+});
+```
+
+## Broadcasting
+
+The server broadcasts updates to relevant clients:
+
+```typescript
+// Broadcast to specific driver
+this.server.to(`driver:${driverId}`).emit('driver:availability:update', data);
+
+// Broadcast to admin dashboard
+this.server.to('admin:drivers').emit('driver:location:update', data);
+
+// Broadcast to specific session
+this.server.to(`session:${sessionId}`).emit('notification', data);
+```
+
+## WebSocket Adapter
+
+The application uses a custom Socket.io adapter configured in `main.ts`:
+
+```typescript
+import { SocketIoAdapter } from './realtime/adapters/socket-io.adapter';
+
+app.useWebSocketAdapter(new SocketIoAdapter(app));
+```
+
+This adapter integrates Socket.io with NestJS and handles CORS configuration.
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Keep Tokens Fresh" icon="rotate">
+    Use refresh tokens to obtain new access tokens before they expire.
+  </Card>
+  <Card title="Handle Reconnection" icon="arrows-rotate">
+    Implement automatic reconnection logic with exponential backoff.
+  </Card>
+  <Card title="Validate Events" icon="shield-check">
+    Always validate incoming event data using DTOs and class-validator.
+  </Card>
+  <Card title="Monitor Connections" icon="chart-line">
+    Track connection counts and implement rate limiting if needed.
+  </Card>
+</CardGroup>
+
+## Error Handling
+
+```javascript
+// Client-side error handling
+socket.on('connect_error', (error) => {
+  console.error('Connection error:', error.message);
+  // Attempt to refresh token and reconnect
+});
+
+socket.on('exception', (error) => {
+  console.error('Server exception:', error);
+});
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="code" href="/api/auth/login">
+    Explore REST API endpoints
+  </Card>
+  <Card title="Configuration" icon="gear" href="/guides/configuration">
+    Configure WebSocket settings
+  </Card>
+</CardGroup>

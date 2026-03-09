@@ -1,0 +1,217 @@
+---
+title: Vehicle Categories
+description: Manage vehicle categories for classification
+---
+
+## Create Vehicle Category
+
+<api method="POST" endpoint="/vehicle-categories">
+  Creates a new vehicle category for classifying vehicle types.
+
+  ### Request Body
+
+  <ParamField body="name" type="string" required>
+    Unique name of the category (1-100 characters)
+  </ParamField>
+
+  <ParamField body="description" type="string">
+    Description of the category
+  </ParamField>
+
+  <ParamField body="iconUrl" type="string" format="url">
+    URL to the representative icon (max 255 characters)
+  </ParamField>
+
+  <ParamField body="isActive" type="boolean" default="true">
+    Whether the category is active
+  </ParamField>
+
+  ### Response
+
+  Returns the created vehicle category.
+
+  <ResponseExample>
+  ```json
+  {
+    "success": true,
+    "message": "Vehicle category created successfully",
+    "data": {
+      "id": "b7a9c9d6-3f28-4e9a-bf82-91f0a8f1a234",
+      "name": "Sedán",
+      "description": "Vehículos de tipo sedán de 4 puertas",
+      "iconUrl": "https://cdn.example.com/icons/sedan.png",
+      "isActive": true,
+      "createdAt": "2024-01-15T10:30:00Z",
+      "updatedAt": "2024-01-15T10:30:00Z"
+    }
+  }
+  ```
+  </ResponseExample>
+</api>
+
+## List Vehicle Categories
+
+<api method="GET" endpoint="/vehicle-categories">
+  Retrieves a paginated list of vehicle categories with optional filters. Admin only.
+
+  ### Query Parameters
+
+  <ParamField query="page" type="integer" default="1">
+    Page number for pagination
+  </ParamField>
+
+  <ParamField query="limit" type="integer" default="10">
+    Number of items per page
+  </ParamField>
+
+  <ParamField query="name" type="string">
+    Filter by category name
+  </ParamField>
+
+  <ParamField query="isActive" type="boolean">
+    Filter by active status
+  </ParamField>
+
+  ### Response
+
+  Returns a paginated list of vehicle categories.
+
+  <ResponseExample>
+  ```json
+  {
+    "success": true,
+    "message": "Vehicle categories retrieved successfully",
+    "data": [
+      {
+        "id": "b7a9c9d6-3f28-4e9a-bf82-91f0a8f1a234",
+        "name": "Sedán",
+        "description": "Vehículos de tipo sedán de 4 puertas",
+        "isActive": true
+      },
+      {
+        "id": "c8bad7e5-4029-5f0b-c093-a2g1b9g2b345",
+        "name": "SUV",
+        "description": "Vehículos utilitarios deportivos",
+        "isActive": true
+      }
+    ],
+    "meta": {
+      "page": 1,
+      "limit": 10,
+      "total": 8,
+      "totalPages": 1
+    }
+  }
+  ```
+  </ResponseExample>
+</api>
+
+## Get Vehicle Category by ID
+
+<api method="GET" endpoint="/vehicle-categories/{id}">
+  Retrieves detailed information about a specific vehicle category.
+
+  ### Path Parameters
+
+  <ParamField path="id" type="string" format="uuid" required>
+    UUID of the vehicle category
+  </ParamField>
+
+  ### Response
+
+  Returns complete vehicle category details.
+
+  <ResponseExample>
+  ```json
+  {
+    "success": true,
+    "message": "Vehicle category retrieved successfully",
+    "data": {
+      "id": "b7a9c9d6-3f28-4e9a-bf82-91f0a8f1a234",
+      "name": "Sedán",
+      "description": "Vehículos de tipo sedán de 4 puertas",
+      "iconUrl": "https://cdn.example.com/icons/sedan.png",
+      "isActive": true,
+      "createdAt": "2024-01-15T10:30:00Z",
+      "updatedAt": "2024-01-15T10:30:00Z"
+    }
+  }
+  ```
+  </ResponseExample>
+</api>
+
+## Update Vehicle Category
+
+<api method="PATCH" endpoint="/vehicle-categories/{id}">
+  Updates a vehicle category. All fields are optional (partial update).
+
+  ### Path Parameters
+
+  <ParamField path="id" type="string" format="uuid" required>
+    UUID of the vehicle category to update
+  </ParamField>
+
+  ### Request Body
+
+  <ParamField body="name" type="string">
+    New name for the category (max 100 characters)
+  </ParamField>
+
+  <ParamField body="description" type="string">
+    Updated description
+  </ParamField>
+
+  <ParamField body="iconUrl" type="string" format="url">
+    Updated icon URL (max 255 characters)
+  </ParamField>
+
+  <ParamField body="isActive" type="boolean">
+    Whether the category is active
+  </ParamField>
+
+  ### Response
+
+  Returns the updated vehicle category.
+
+  <ResponseExample>
+  ```json
+  {
+    "success": true,
+    "message": "Vehicle category updated successfully",
+    "data": {
+      "id": "b7a9c9d6-3f28-4e9a-bf82-91f0a8f1a234",
+      "name": "Sedán Deportivo",
+      "description": "Vehículos de tipo sedán deportivo de 4 puertas",
+      "iconUrl": "https://cdn.example.com/icons/sedan.png",
+      "isActive": true
+    }
+  }
+  ```
+  </ResponseExample>
+</api>
+
+## Delete Vehicle Category
+
+<api method="DELETE" endpoint="/vehicle-categories/{id}">
+  Soft-deletes a vehicle category (marks as inactive).
+
+  ### Path Parameters
+
+  <ParamField path="id" type="string" format="uuid" required>
+    UUID of the vehicle category to delete
+  </ParamField>
+
+  ### Response
+
+  Returns confirmation of deletion.
+
+  <ResponseExample>
+  ```json
+  {
+    "success": true,
+    "message": "Vehicle category deleted successfully",
+    "data": null
+  }
+  ```
+  </ResponseExample>
+</api>

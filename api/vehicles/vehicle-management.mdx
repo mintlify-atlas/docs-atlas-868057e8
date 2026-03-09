@@ -1,0 +1,336 @@
+---
+title: Vehicle Management
+description: Manage vehicles in the Rodando platform
+---
+
+## Create Vehicle
+
+<api method="POST" endpoint="/vehicles">
+  Creates a new vehicle and associates it with a driver profile.
+
+  ### Request Body
+
+  <ParamField body="driverId" type="string" format="uuid" required>
+    UUID of the driver who owns the vehicle
+  </ParamField>
+
+  <ParamField body="driverProfileId" type="string" format="uuid" required>
+    UUID of the driver profile associated with this vehicle
+  </ParamField>
+
+  <ParamField body="vehicleTypeId" type="string" format="uuid" required>
+    UUID of the vehicle type
+  </ParamField>
+
+  <ParamField body="make" type="string" required>
+    Vehicle manufacturer (max 50 characters)
+  </ParamField>
+
+  <ParamField body="model" type="string" required>
+    Vehicle model (max 50 characters)
+  </ParamField>
+
+  <ParamField body="year" type="integer" required>
+    Manufacturing year
+  </ParamField>
+
+  <ParamField body="plateNumber" type="string" required>
+    License plate number (max 15 characters)
+  </ParamField>
+
+  <ParamField body="color" type="string">
+    Vehicle color (max 30 characters)
+  </ParamField>
+
+  <ParamField body="capacity" type="integer">
+    Passenger capacity (minimum 1)
+  </ParamField>
+
+  <ParamField body="isActive" type="boolean">
+    Whether the vehicle is active
+  </ParamField>
+
+  <ParamField body="status" type="string">
+    Vehicle status (enum: VehicleStatus)
+  </ParamField>
+
+  <ParamField body="inspectionDate" type="string" format="date">
+    Last inspection date (ISO 8601 format)
+  </ParamField>
+
+  <ParamField body="lastMaintenanceDate" type="string" format="date">
+    Last maintenance date (ISO 8601 format)
+  </ParamField>
+
+  <ParamField body="mileage" type="integer">
+    Current vehicle mileage
+  </ParamField>
+
+  ### Response
+
+  Returns the created vehicle with all its details.
+
+  <ResponseExample>
+  ```json
+  {
+    "success": true,
+    "message": "Vehicle created successfully",
+    "data": {
+      "id": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+      "driverId": "b7a9c9d6-3f28-4e9a-bf82-91f0a8f1a234",
+      "driverProfileId": "e6b15a89-3c42-45b8-8d12-84c9c0f22d91",
+      "vehicleTypeId": "c4d5e6f7-8901-2345-6789-0abcdef12345",
+      "make": "Toyota",
+      "model": "Corolla",
+      "year": 2022,
+      "plateNumber": "ABC-123",
+      "color": "Silver",
+      "capacity": 4,
+      "isActive": true,
+      "status": "available",
+      "createdAt": "2024-01-15T10:30:00Z",
+      "updatedAt": "2024-01-15T10:30:00Z"
+    }
+  }
+  ```
+  </ResponseExample>
+</api>
+
+## List Vehicles
+
+<api method="GET" endpoint="/vehicles">
+  Retrieves a paginated list of vehicles with optional filters. Admin only.
+
+  ### Query Parameters
+
+  <ParamField query="page" type="integer" default="1">
+    Page number for pagination
+  </ParamField>
+
+  <ParamField query="limit" type="integer" default="10">
+    Number of items per page
+  </ParamField>
+
+  ### Response
+
+  Returns a paginated list of vehicles.
+
+  <ResponseExample>
+  ```json
+  {
+    "success": true,
+    "message": "Vehicles retrieved successfully",
+    "data": [
+      {
+        "id": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+        "make": "Toyota",
+        "model": "Corolla",
+        "year": 2022,
+        "plateNumber": "ABC-123",
+        "isActive": true
+      }
+    ],
+    "meta": {
+      "page": 1,
+      "limit": 10,
+      "total": 45,
+      "totalPages": 5
+    }
+  }
+  ```
+  </ResponseExample>
+</api>
+
+## Get Vehicle by ID
+
+<api method="GET" endpoint="/vehicles/{id}">
+  Retrieves detailed information about a specific vehicle.
+
+  ### Path Parameters
+
+  <ParamField path="id" type="string" format="uuid" required>
+    UUID of the vehicle
+  </ParamField>
+
+  ### Response
+
+  Returns complete vehicle details.
+
+  <ResponseExample>
+  ```json
+  {
+    "success": true,
+    "message": "Vehicle retrieved successfully",
+    "data": {
+      "id": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+      "driverId": "b7a9c9d6-3f28-4e9a-bf82-91f0a8f1a234",
+      "driverProfileId": "e6b15a89-3c42-45b8-8d12-84c9c0f22d91",
+      "vehicleTypeId": "c4d5e6f7-8901-2345-6789-0abcdef12345",
+      "make": "Toyota",
+      "model": "Corolla",
+      "year": 2022,
+      "plateNumber": "ABC-123",
+      "color": "Silver",
+      "capacity": 4,
+      "isActive": true,
+      "status": "available",
+      "inspectionDate": "2024-01-01T00:00:00Z",
+      "lastMaintenanceDate": "2023-12-15T00:00:00Z",
+      "mileage": 15000,
+      "createdAt": "2024-01-15T10:30:00Z",
+      "updatedAt": "2024-01-15T10:30:00Z"
+    }
+  }
+  ```
+  </ResponseExample>
+</api>
+
+## Update Vehicle
+
+<api method="PATCH" endpoint="/vehicles/{id}">
+  Updates vehicle information. All fields are optional (partial update).
+
+  ### Path Parameters
+
+  <ParamField path="id" type="string" format="uuid" required>
+    UUID of the vehicle to update
+  </ParamField>
+
+  ### Request Body
+
+  <ParamField body="driverId" type="string" format="uuid">
+    UUID of the driver who owns the vehicle
+  </ParamField>
+
+  <ParamField body="driverProfileId" type="string" format="uuid">
+    UUID of the driver profile
+  </ParamField>
+
+  <ParamField body="vehicleTypeId" type="string" format="uuid">
+    UUID of the vehicle type
+  </ParamField>
+
+  <ParamField body="make" type="string">
+    Vehicle manufacturer
+  </ParamField>
+
+  <ParamField body="model" type="string">
+    Vehicle model
+  </ParamField>
+
+  <ParamField body="year" type="integer">
+    Manufacturing year
+  </ParamField>
+
+  <ParamField body="plateNumber" type="string">
+    License plate number
+  </ParamField>
+
+  <ParamField body="color" type="string">
+    Vehicle color
+  </ParamField>
+
+  <ParamField body="capacity" type="integer">
+    Passenger capacity
+  </ParamField>
+
+  <ParamField body="isActive" type="boolean">
+    Whether the vehicle is active
+  </ParamField>
+
+  <ParamField body="status" type="string">
+    Vehicle status
+  </ParamField>
+
+  <ParamField body="inspectionDate" type="string" format="date">
+    Last inspection date
+  </ParamField>
+
+  <ParamField body="lastMaintenanceDate" type="string" format="date">
+    Last maintenance date
+  </ParamField>
+
+  <ParamField body="mileage" type="integer">
+    Current vehicle mileage
+  </ParamField>
+
+  ### Response
+
+  Returns the updated vehicle.
+
+  <ResponseExample>
+  ```json
+  {
+    "success": true,
+    "message": "Vehicle updated successfully",
+    "data": {
+      "id": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+      "make": "Toyota",
+      "model": "Corolla",
+      "year": 2022,
+      "plateNumber": "ABC-123",
+      "color": "Blue",
+      "isActive": true
+    }
+  }
+  ```
+  </ResponseExample>
+</api>
+
+## Delete Vehicle
+
+<api method="DELETE" endpoint="/vehicles/{id}">
+  Soft-deletes a vehicle (marks as inactive rather than permanently removing).
+
+  ### Path Parameters
+
+  <ParamField path="id" type="string" format="uuid" required>
+    UUID of the vehicle to delete
+  </ParamField>
+
+  ### Response
+
+  Returns confirmation of deletion.
+
+  <ResponseExample>
+  ```json
+  {
+    "success": true,
+    "message": "Vehicle deleted successfully",
+    "data": null
+  }
+  ```
+  </ResponseExample>
+</api>
+
+## Get Vehicle's Driver Profile
+
+<api method="GET" endpoint="/vehicles/{id}/driver-profile">
+  Retrieves the driver profile associated with a specific vehicle.
+
+  ### Path Parameters
+
+  <ParamField path="id" type="string" format="uuid" required>
+    UUID of the vehicle
+  </ParamField>
+
+  ### Response
+
+  Returns the associated driver profile.
+
+  <ResponseExample>
+  ```json
+  {
+    "success": true,
+    "message": "Driver profile retrieved successfully",
+    "data": {
+      "id": "e6b15a89-3c42-45b8-8d12-84c9c0f22d91",
+      "driverId": "b7a9c9d6-3f28-4e9a-bf82-91f0a8f1a234",
+      "licenseNumber": "DL123456789",
+      "status": "active",
+      "rating": 4.8
+    }
+  }
+  ```
+  </ResponseExample>
+</api>

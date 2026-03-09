@@ -1,0 +1,296 @@
+---
+title: 'Trip Lifecycle'
+description: 'Understanding trip states and transitions in the Rodando platform'
+---
+
+This document describes the complete lifecycle of a trip from creation to completion, including all possible states and transitions.
+
+## Trip States
+
+A trip progresses through multiple states during its lifecycle. Here are all possible states:
+
+### pending
+Initial state when a trip is first created. The trip request has been received but driver matching has not yet started.
+
+**Possible transitions:**
+- `assigning` - When the matching system begins looking for available drivers
+- `cancelled` - If the passenger cancels before matching starts
+
+### assigning
+The system is actively searching for and offering the trip to available drivers.
+
+**Possible transitions:**
+- `accepted` - When a driver accepts the trip assignment
+- `no_drivers_found` - If no drivers accept within the timeout period
+- `cancelled` - If the passenger cancels during matching
+
+### accepted
+A driver has accepted the trip and is preparing to head to the pickup location.
+
+**Possible transitions:**
+- `arriving` - When the driver starts navigating to the pickup point
+- `cancelled` - If the passenger or driver cancels
+
+### arriving
+The driver is en route to the pickup location.
+
+**Possible transitions:**
+- `arriving` (arrived at pickup) - When the driver reaches the pickup point
+- `in_progress` - When the passenger boards and the trip starts
+- `cancelled` - If the passenger or driver cancels
+
+### in_progress
+The passenger is on board and the trip is actively underway to the destination.
+
+**Possible transitions:**
+- `completed` - When the trip reaches the final destination
+- `cancelled` - In rare cases (emergency, etc.)
+
+### completed
+The trip has been successfully completed. This is a terminal state.
+
+**No further transitions possible.**
+
+### cancelled
+The trip was cancelled by the passenger, driver, or system. This is a terminal state.
+
+**No further transitions possible.**
+
+### no_drivers_found
+No available drivers accepted the trip within the matching timeout period. This is a terminal state.
+
+**No further transitions possible.**
+
+## State Transition Diagram
+
+```mermaid
+graph TD
+    A[pending] --> B[assigning]
+    A --> H[cancelled]
+    B --> C[accepted]
+    B --> G[no_drivers_found]
+    B --> H
+    C --> D[arriving]
+    C --> H
+    D --> E[in_progress]
+    D --> H
+    E --> F[completed]
+    E --> H
+    
+    style F fill:#90EE90
+    style H fill:#FFB6C6
+    style G fill:#FFD700
+```
+
+## Lifecycle Timestamps
+
+Each state transition is tracked with specific timestamp fields:
+
+<ResponseField name="requestedAt" type="string">
+  When the trip was initially requested (trip creation)
+</ResponseField>
+
+<ResponseField name="acceptedAt" type="string">
+  When a driver accepted the trip assignment
+</ResponseField>
+
+<ResponseField name="pickupEtaAt" type="string">
+  Estimated time when driver will arrive at pickup (set when entering `arriving`)
+</ResponseField>
+
+<ResponseField name="arrivedPickupAt" type="string">
+  When the driver physically arrived at the pickup location
+</ResponseField>
+
+<ResponseField name="startedAt" type="string">
+  When the trip started (passenger on board, entering `in_progress`)
+</ResponseField>
+
+<ResponseField name="completedAt" type="string">
+  When the trip was successfully completed
+</ResponseField>
+
+<ResponseField name="canceledAt" type="string">
+  When the trip was cancelled (if applicable)
+</ResponseField>
+
+## API Endpoints for State Transitions
+
+Each state transition is triggered by specific API endpoints:
+
+### pending → assigning
+
+```bash POST /trips/{id}/assign/start
+curl -X POST https://api.rodando.com/trips/{id}/assign/start \
+  -H "Content-Type: application/json" \
+  -d '{
+    "maxOffers": 5,
+    "offerTimeoutSeconds": 30
+  }'
+```
+
+Starts the driver matching process.
+
+### assigning → accepted
+
+```bash PATCH /trips/assignments/{assignmentId}/accept
+curl -X PATCH https://api.rodando.com/trips/assignments/{assignmentId}/accept \
+  -H "Authorization: Bearer {driver-token}"
+```
+
+Driver accepts a trip assignment.
+
+### accepted → arriving
+
+```bash POST /trips/{id}/arriving
+curl -X POST https://api.rodando.com/trips/{id}/arriving \
+  -H "Content-Type: application/json" \
+  -d '{
+    "driverId": "driver-uuid-456",
+    "pickupEta": "2025-09-20T14:42:00Z"
+  }'
+```
+
+Driver starts heading to pickup location.
+
+### arriving → arrived at pickup
+
+```bash POST /trips/{id}/arrived-pickup
+curl -X POST https://api.rodando.com/trips/{id}/arrived-pickup \
+  -H "Content-Type: application/json" \
+  -d '{
+    "driverId": "driver-uuid-456"
+  }'
+```
+
+Driver marks arrival at pickup point.
+
+### arriving/arrived → in_progress
+
+```bash POST /trips/{id}/start
+curl -X POST https://api.rodando.com/trips/{id}/start \
+  -H "Content-Type: application/json" \
+  -d '{
+    "driverId": "driver-uuid-456"
+  }'
+```
+
+Driver starts the trip (passenger on board).
+
+### in_progress → completed
+
+```bash POST /trips/{id}/complete
+curl -X POST https://api.rodando.com/trips/{id}/complete \
+  -H "Content-Type: application/json" \
+  -d '{
+    "driverId": "driver-uuid-456",
+    "actualDistanceKm": 3.5,
+    "actualDurationMin": 15,
+    "completedAt": "2025-09-20T15:00:00Z"
+  }'
+```
+
+Completes the trip and calculates final fare.
+
+### assigning → no_drivers_found
+
+```bash POST /trips/{id}/assign/no-drivers
+curl -X POST https://api.rodando.com/trips/{id}/assign/no-drivers
+```
+
+Marks trip as having no available drivers (typically called automatically by the matching system).
+
+## Driver Assignment Flow
+
+The `assigning` state involves a multi-step assignment process:
+
+1. **System creates assignments** - Trip assignments are created for eligible drivers based on proximity, vehicle category, and availability
+
+2. **Drivers receive offers** - Each assignment represents an offer sent to a driver with a timeout (typically 15-30 seconds)
+
+3. **Driver responds** - Driver can:
+   - **Accept** - Trip moves to `accepted`, driver is assigned
+   - **Reject** - System continues offering to other drivers
+   - **Timeout** - If no response within timeout, offer expires and continues to next driver
+
+4. **Outcomes:**
+   - If any driver accepts → Trip becomes `accepted`
+   - If all drivers reject/timeout → Trip becomes `no_drivers_found`
+   - If passenger cancels during matching → Trip becomes `cancelled`
+
+### Assignment Endpoints
+
+```bash POST /trips/{id}/reject
+curl -X POST https://api.rodando.com/trips/{id}/reject \
+  -H "Content-Type: application/json" \
+  -d '{
+    "driverId": "driver-uuid-789",
+    "reason": "too_far"
+  }'
+```
+
+Driver rejects a trip assignment.
+
+```bash POST /trips/{id}/expire
+curl -X POST https://api.rodando.com/trips/{id}/expire
+```
+
+Marks an assignment as expired (called automatically when timeout is reached).
+
+## Events and Notifications
+
+Each state transition triggers domain events that can be used for:
+
+- **Real-time notifications** - WebSocket updates to passenger and driver apps
+- **Audit logging** - Complete history of trip state changes
+- **Analytics** - Trip metrics and performance tracking
+- **Integration hooks** - Third-party system notifications
+
+### Event Types
+
+- `TripRequestedEvent` - Trip created (`pending`)
+- `AssigningStartedEvent` - Matching started (`assigning`)
+- `DriverAcceptedEvent` - Driver accepted assignment (`accepted`)
+- `ArrivingStartedEvent` - Driver en route (`arriving`)
+- `DriverArrivedPickupEvent` - Driver at pickup location
+- `TripStartedEvent` - Trip in progress (`in_progress`)
+- `TripCompletedEvent` - Trip finished (`completed`)
+- `DriverRejectedEvent` - Driver rejected offer
+- `AssignmentExpiredEvent` - Offer timeout
+- `NoDriversFoundEvent` - No drivers available (`no_drivers_found`)
+
+## Viewing Trip Events
+
+You can retrieve the complete audit trail of all events for a trip:
+
+```bash GET /trips/{id}/events
+curl https://api.rodando.com/trips/{id}/events
+```
+
+Returns a chronological list of all state transitions and events with timestamps and metadata.
+
+## Business Rules
+
+### State Validation
+- State transitions are validated to ensure they follow the allowed flow
+- Invalid transitions (e.g., `pending` → `completed`) are rejected with HTTP 409 Conflict
+
+### Driver Assignment
+- Only the assigned driver can perform actions on trips in `accepted`, `arriving`, or `in_progress` states
+- Driver ID is validated on all driver action endpoints
+
+### Fare Calculation
+- `fareEstimatedTotal` is set when trip is created (based on pricing engine)
+- `fareTotal` is calculated when trip transitions to `completed`
+- Fare breakdown includes actual distance, duration, surge, and all fees
+
+### Cancellation
+- Trips can be cancelled at any non-terminal state
+- Cancellation policies may apply fees depending on trip state
+- Both passenger and driver may have cancellation rights with different rules
+
+## See Also
+
+- [Create Trip](/api/trips/create-trip) - Initialize a new trip
+- [Get Trip](/api/trips/get-trip) - Retrieve trip details including current state
+- [List Trips](/api/trips/list-trips) - Filter trips by status

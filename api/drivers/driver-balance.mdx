@@ -1,0 +1,439 @@
+---
+title: Driver Balance
+description: Manage driver wallets, cash topups, and wallet movements
+---
+
+## Create Cash Topup
+
+<api method="POST" path="/drivers-balance/{driverId}/topups">
+  Creates a pending cash topup for a driver's wallet at a collection point
+</api>
+
+### Path Parameters
+
+<ParamField path="driverId" type="string" required>
+  UUID of the driver (v4 format)
+</ParamField>
+
+### Body Parameters
+
+<ParamField body="collectionPointId" type="string" required>
+  UUID of the collection point where cash is being deposited
+</ParamField>
+
+<ParamField body="collectedByUserId" type="string" required>
+  UUID of the staff/operator collecting the cash
+</ParamField>
+
+<ParamField body="amount" type="string" required>
+  Deposit amount as a decimal string (e.g., "150.00")
+</ParamField>
+
+<ParamField body="currency" type="string" default="CUP">
+  ISO 4217 currency code (3 characters). Defaults to "CUP"
+</ParamField>
+
+<ParamField body="notes" type="string">
+  Optional notes for the cash collection record
+</ParamField>
+
+<ParamField body="description" type="string">
+  Optional description for the transaction (e.g., "cash topup at desk")
+</ParamField>
+
+<ParamField body="metadata" type="object">
+  Free-form metadata object (e.g., `{"source": "window-3"}`)
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the operation was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Created cash collection record
+  <Expandable title="properties">
+    <ResponseField name="cashCollectionRecordId" type="string">
+      UUID of the cash collection record
+    </ResponseField>
+    <ResponseField name="transactionId" type="string">
+      UUID of the associated transaction
+    </ResponseField>
+    <ResponseField name="status" type="string">
+      Status of the topup ("pending")
+    </ResponseField>
+    <ResponseField name="currency" type="string">
+      Currency code
+    </ResponseField>
+    <ResponseField name="amount" type="string">
+      Deposit amount
+    </ResponseField>
+    <ResponseField name="collectionPointId" type="string">
+      Collection point UUID
+    </ResponseField>
+    <ResponseField name="collectedByUserId" type="string">
+      Collector user UUID
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<Note>
+  This creates a pending cash collection record and transaction. The wallet is not credited until the topup is confirmed.
+</Note>
+
+---
+
+## Confirm Cash Topup
+
+<api method="POST" path="/drivers-balance/topups/{ccrId}/confirm">
+  Confirms a pending cash topup, credits the driver's wallet, and marks the transaction as processed
+</api>
+
+### Path Parameters
+
+<ParamField path="ccrId" type="string" required>
+  UUID of the CashCollectionRecord to confirm (v4 format)
+</ParamField>
+
+### Body Parameters
+
+<ParamField body="comment" type="string">
+  Optional confirmation comment (max 500 characters, e.g., "Billetes verificados y contados")
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the operation was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Confirmed cash topup details
+  <Expandable title="properties">
+    <ResponseField name="cashCollectionRecordId" type="string">
+      UUID of the cash collection record
+    </ResponseField>
+    <ResponseField name="transactionId" type="string">
+      UUID of the transaction
+    </ResponseField>
+    <ResponseField name="status" type="string">
+      Status of the topup ("completed")
+    </ResponseField>
+    <ResponseField name="currency" type="string">
+      Currency code
+    </ResponseField>
+    <ResponseField name="amount" type="string">
+      Deposited amount
+    </ResponseField>
+    <ResponseField name="previousBalance" type="string">
+      Wallet balance before topup
+    </ResponseField>
+    <ResponseField name="newBalance" type="string">
+      Wallet balance after topup
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<Warning>
+  This operation is irreversible. It applies the credit to the wallet, creates a wallet movement record, and marks the cash collection record and transaction as completed.
+</Warning>
+
+---
+
+## Get Driver Wallet Balance
+
+<api method="GET" path="/drivers-balance/{driverId}">
+  Retrieves the current wallet balance and metadata for a driver
+</api>
+
+### Path Parameters
+
+<ParamField path="driverId" type="string" required>
+  UUID of the driver (v4 format)
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the operation was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Driver wallet balance information
+  <Expandable title="properties">
+    <ResponseField name="id" type="string">
+      Wallet UUID
+    </ResponseField>
+    <ResponseField name="driverId" type="string">
+      Driver UUID
+    </ResponseField>
+    <ResponseField name="currency" type="string">
+      Wallet currency code
+    </ResponseField>
+    <ResponseField name="balance" type="string">
+      Current available balance
+    </ResponseField>
+    <ResponseField name="heldAmount" type="string">
+      Amount currently held/reserved
+    </ResponseField>
+    <ResponseField name="totalEarnings" type="string">
+      Lifetime total earnings
+    </ResponseField>
+    <ResponseField name="totalWithdrawals" type="string">
+      Lifetime total withdrawals
+    </ResponseField>
+    <ResponseField name="status" type="string">
+      Wallet status (e.g., "active", "blocked")
+    </ResponseField>
+    <ResponseField name="createdAt" type="string">
+      Wallet creation timestamp
+    </ResponseField>
+    <ResponseField name="updatedAt" type="string">
+      Last update timestamp
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## Get Wallet Movements
+
+<api method="GET" path="/drivers-balance/{walletId}/movements">
+  Retrieves paginated wallet movements (transaction history) for a specific wallet
+</api>
+
+### Path Parameters
+
+<ParamField path="walletId" type="string" required>
+  UUID of the wallet (driver_balance.id, v4 format)
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="page" type="number" default="1">
+  Page number for pagination
+</ParamField>
+
+<ParamField query="limit" type="number" default="10">
+  Number of items per page
+</ParamField>
+
+<ParamField query="transactionId" type="string">
+  Filter by transaction UUID
+</ParamField>
+
+<ParamField query="from" type="string">
+  Start date filter in ISO-8601 format (e.g., "2025-01-01T00:00:00Z")
+</ParamField>
+
+<ParamField query="to" type="string">
+  End date filter in ISO-8601 format (e.g., "2025-12-31T23:59:59Z")
+</ParamField>
+
+<ParamField query="search" type="string">
+  Search term to filter movements
+</ParamField>
+
+<ParamField query="sortBy" type="enum" default="createdAt">
+  Field to sort by
+  - `createdAt` - Sort by creation date
+  - `amount` - Sort by transaction amount
+</ParamField>
+
+<ParamField query="sortDir" type="enum" default="desc">
+  Sort direction
+  - `asc` - Ascending order
+  - `desc` - Descending order
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the operation was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message
+</ResponseField>
+
+<ResponseField name="data" type="array">
+  Array of wallet movement records
+  <Expandable title="item properties">
+    <ResponseField name="id" type="string">
+      Movement record UUID
+    </ResponseField>
+    <ResponseField name="walletId" type="string">
+      Wallet UUID
+    </ResponseField>
+    <ResponseField name="transactionId" type="string">
+      Associated transaction UUID
+    </ResponseField>
+    <ResponseField name="amount" type="string">
+      Transaction amount (positive for credits, negative for debits)
+    </ResponseField>
+    <ResponseField name="previousBalance" type="string">
+      Balance before this movement
+    </ResponseField>
+    <ResponseField name="newBalance" type="string">
+      Balance after this movement
+    </ResponseField>
+    <ResponseField name="movementType" type="string">
+      Type of movement (e.g., "credit", "debit")
+    </ResponseField>
+    <ResponseField name="description" type="string">
+      Movement description
+    </ResponseField>
+    <ResponseField name="createdAt" type="string">
+      Movement timestamp
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="meta" type="object">
+  Pagination metadata
+  <Expandable title="properties">
+    <ResponseField name="page" type="number">
+      Current page number
+    </ResponseField>
+    <ResponseField name="limit" type="number">
+      Items per page
+    </ResponseField>
+    <ResponseField name="total" type="number">
+      Total number of movements
+    </ResponseField>
+    <ResponseField name="totalPages" type="number">
+      Total number of pages
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## Block Driver Wallet
+
+<api method="POST" path="/wallets-status/{driverId}/block">
+  Blocks a driver's wallet, preventing payouts and withdrawals while allowing topups and adjustments
+</api>
+
+### Path Parameters
+
+<ParamField path="driverId" type="string" required>
+  UUID of the driver (v4 format)
+</ParamField>
+
+### Body Parameters
+
+<ParamField body="reason" type="string">
+  Reason for blocking the wallet (max 250 characters, for audit/traceability)
+</ParamField>
+
+<ParamField body="comment" type="string">
+  Additional comment (max 500 characters, e.g., "Bloqueo preventivo hasta resolver disputa #D-1234")
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the operation was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message (indicates if wallet was already blocked - idempotent)
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Wallet status change information
+  <Expandable title="properties">
+    <ResponseField name="driverId" type="string">
+      Driver UUID
+    </ResponseField>
+    <ResponseField name="previousStatus" type="string">
+      Status before the operation
+    </ResponseField>
+    <ResponseField name="status" type="string">
+      Current status ("blocked")
+    </ResponseField>
+    <ResponseField name="changed" type="boolean">
+      Whether the status actually changed
+    </ResponseField>
+    <ResponseField name="changedAt" type="string">
+      Timestamp of the status change
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<Note>
+  This operation is idempotent. If the wallet is already blocked, it returns success without making changes.
+</Note>
+
+---
+
+## Unblock Driver Wallet
+
+<api method="POST" path="/wallets-status/{driverId}/unblock">
+  Unblocks a driver's wallet, changing the status back to active
+</api>
+
+### Path Parameters
+
+<ParamField path="driverId" type="string" required>
+  UUID of the driver (v4 format)
+</ParamField>
+
+### Body Parameters
+
+<ParamField body="reason" type="string">
+  Reason for unblocking (max 250 characters, e.g., "Disputa resuelta")
+</ParamField>
+
+<ParamField body="comment" type="string">
+  Additional comment (max 500 characters, e.g., "Se validó identidad del conductor y se cerró el ticket")
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the operation was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message (indicates if wallet was already active - idempotent)
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Wallet status change information
+  <Expandable title="properties">
+    <ResponseField name="driverId" type="string">
+      Driver UUID
+    </ResponseField>
+    <ResponseField name="previousStatus" type="string">
+      Status before the operation
+    </ResponseField>
+    <ResponseField name="status" type="string">
+      Current status ("active")
+    </ResponseField>
+    <ResponseField name="changed" type="boolean">
+      Whether the status actually changed
+    </ResponseField>
+    <ResponseField name="changedAt" type="string">
+      Timestamp of the status change
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<Note>
+  This operation is idempotent. If the wallet is already active, it returns success without making changes.
+</Note>

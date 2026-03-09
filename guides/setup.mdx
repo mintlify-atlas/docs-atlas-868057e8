@@ -1,0 +1,119 @@
+---
+title: 'Project Setup'
+description: 'Get started with the Rodando Backend project'
+---
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+- **Node.js** (v18 or higher)
+- **npm** or **yarn**
+- **PostgreSQL** (v12 or higher)
+- **Git**
+
+## Installation
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone <repository-url>
+    cd nest-uber-app-backend
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    ```bash
+    npm install
+    ```
+
+    This will install all required packages including:
+    - NestJS framework
+    - TypeORM for database management
+    - Socket.io for WebSocket support
+    - JWT and Passport for authentication
+    - PostgreSQL driver
+  </Step>
+
+  <Step title="Configure environment variables">
+    Copy the example environment file:
+    
+    ```bash
+    cp .env.example .env
+    ```
+
+    See [Configuration](/guides/configuration) for detailed environment setup.
+  </Step>
+
+  <Step title="Set up the database">
+    Ensure PostgreSQL is running and create the database:
+    
+    ```sql
+    CREATE DATABASE rodando;
+    ```
+
+    See [Database Setup](/guides/database-setup) for more details.
+  </Step>
+
+  <Step title="Run the application">
+    Start the development server:
+    
+    ```bash
+    npm run start:dev
+    ```
+
+    The server will start on `http://localhost:3000` (or the port specified in your `.env` file).
+  </Step>
+</Steps>
+
+## Verify Installation
+
+<Steps>
+  <Step title="Check API health">
+    Visit `http://localhost:3000/api` in your browser or use curl:
+    
+    ```bash
+    curl http://localhost:3000/api
+    ```
+  </Step>
+
+  <Step title="Access Swagger documentation">
+    If Swagger is enabled in your environment, access the API documentation at:
+    
+    - Main API: `http://localhost:3000/api/docs`
+    - Auth Docs: `http://localhost:3000/docs/auth`
+    - Users Docs: `http://localhost:3000/docs/users`
+  </Step>
+</Steps>
+
+## Available Scripts
+
+| Script | Description |
+|--------|-------------|
+| `npm run start` | Start the application |
+| `npm run start:dev` | Start in watch mode for development |
+| `npm run start:debug` | Start in debug mode |
+| `npm run start:prod` | Start in production mode |
+| `npm run build` | Build the application |
+| `npm run lint` | Run ESLint |
+| `npm run lint:fix` | Fix ESLint issues |
+| `npm run test` | Run tests |
+| `npm run test:watch` | Run tests in watch mode |
+| `npm run test:cov` | Run tests with coverage |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="gear" href="/guides/configuration">
+    Configure environment variables and application settings
+  </Card>
+  <Card title="Database Setup" icon="database" href="/guides/database-setup">
+    Set up database connections and migrations
+  </Card>
+  <Card title="WebSockets" icon="satellite-dish" href="/guides/websockets">
+    Learn about real-time communication
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/auth/login">
+    Explore the API endpoints
+  </Card>
+</CardGroup>

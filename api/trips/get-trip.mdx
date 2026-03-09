@@ -1,0 +1,298 @@
+---
+title: 'Get Trip'
+api: 'GET /trips/{id}'
+description: 'Retrieve detailed information about a specific trip'
+---
+
+Retrieves complete details for a trip by its unique identifier, including passenger information, driver assignment, stops, fare breakdown, and status timestamps.
+
+## Path Parameters
+
+<ParamField path="id" type="string" required>
+  UUID of the trip to retrieve
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the request was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Response message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Complete trip details
+  
+  <ResponseField name="data.id" type="string">
+    Unique trip identifier (UUID)
+  </ResponseField>
+  
+  <ResponseField name="data.passengerId" type="string">
+    UUID of the passenger
+  </ResponseField>
+  
+  <ResponseField name="data.passengerName" type="string">
+    Full name of the passenger
+  </ResponseField>
+  
+  <ResponseField name="data.passengerPhone" type="string">
+    Phone number of the passenger
+  </ResponseField>
+  
+  <ResponseField name="data.driverId" type="string">
+    UUID of the assigned driver (null if not yet assigned)
+  </ResponseField>
+  
+  <ResponseField name="data.vehicleId" type="string">
+    UUID of the assigned vehicle (null if not yet assigned)
+  </ResponseField>
+  
+  <ResponseField name="data.orderId" type="string">
+    UUID of the payment order (if applicable)
+  </ResponseField>
+  
+  <ResponseField name="data.requestedVehicleCategoryId" type="string">
+    UUID of requested vehicle category
+  </ResponseField>
+  
+  <ResponseField name="data.requestedVehicleCategoryName" type="string">
+    Name of requested vehicle category (e.g., Auto, Moto, Van)
+  </ResponseField>
+  
+  <ResponseField name="data.requestedServiceClassId" type="string">
+    UUID of requested service class
+  </ResponseField>
+  
+  <ResponseField name="data.requestedServiceClassName" type="string">
+    Name of requested service class (e.g., Standard, Premium)
+  </ResponseField>
+  
+  <ResponseField name="data.currentStatus" type="string">
+    Current trip status: `pending`, `assigning`, `accepted`, `arriving`, `in_progress`, `completed`, `cancelled`, or `no_drivers_found`
+  </ResponseField>
+  
+  <ResponseField name="data.paymentMode" type="string">
+    Payment method: `cash`, `card`, or `wallet`
+  </ResponseField>
+  
+  <ResponseField name="data.pickupPoint" type="object">
+    Pickup location coordinates
+    
+    <ResponseField name="data.pickupPoint.lat" type="number">
+      Latitude
+    </ResponseField>
+    
+    <ResponseField name="data.pickupPoint.lng" type="number">
+      Longitude
+    </ResponseField>
+  </ResponseField>
+  
+  <ResponseField name="data.pickupAddress" type="string">
+    Human-readable pickup address
+  </ResponseField>
+  
+  <ResponseField name="data.stops" type="array">
+    Array of trip stops
+    
+    <ResponseField name="data.stops[].seq" type="number">
+      Stop sequence number
+    </ResponseField>
+    
+    <ResponseField name="data.stops[].point" type="object">
+      Stop coordinates
+      
+      <ResponseField name="data.stops[].point.lat" type="number">
+        Latitude
+      </ResponseField>
+      
+      <ResponseField name="data.stops[].point.lng" type="number">
+        Longitude
+      </ResponseField>
+    </ResponseField>
+    
+    <ResponseField name="data.stops[].address" type="string">
+      Stop address
+    </ResponseField>
+    
+    <ResponseField name="data.stops[].placeId" type="string">
+      Place identifier
+    </ResponseField>
+    
+    <ResponseField name="data.stops[].notes" type="string">
+      Additional instructions
+    </ResponseField>
+    
+    <ResponseField name="data.stops[].plannedArrivalAt" type="string">
+      Planned arrival timestamp (ISO 8601)
+    </ResponseField>
+    
+    <ResponseField name="data.stops[].arrivedAt" type="string">
+      Actual arrival timestamp (ISO 8601)
+    </ResponseField>
+    
+    <ResponseField name="data.stops[].completedAt" type="string">
+      Completion timestamp (ISO 8601)
+    </ResponseField>
+  </ResponseField>
+  
+  <ResponseField name="data.fareEstimatedTotal" type="number">
+    Initial estimated fare
+  </ResponseField>
+  
+  <ResponseField name="data.fareTotal" type="number">
+    Final fare amount (set when trip is completed)
+  </ResponseField>
+  
+  <ResponseField name="data.fareFinalCurrency" type="string">
+    Currency code for the fare
+  </ResponseField>
+  
+  <ResponseField name="data.fareDistanceKm" type="number">
+    Actual distance traveled in kilometers
+  </ResponseField>
+  
+  <ResponseField name="data.fareDurationMin" type="number">
+    Actual trip duration in minutes
+  </ResponseField>
+  
+  <ResponseField name="data.fareSurgeMultiplier" type="number">
+    Surge pricing multiplier applied
+  </ResponseField>
+  
+  <ResponseField name="data.fareBreakdown" type="object">
+    Detailed fare calculation breakdown (see [Estimate Trip](/api/trips/estimate-trip) for structure)
+  </ResponseField>
+  
+  <ResponseField name="data.requestedAt" type="string">
+    ISO 8601 timestamp when trip was requested
+  </ResponseField>
+  
+  <ResponseField name="data.acceptedAt" type="string">
+    ISO 8601 timestamp when driver accepted
+  </ResponseField>
+  
+  <ResponseField name="data.pickupEtaAt" type="string">
+    ISO 8601 timestamp for estimated pickup arrival
+  </ResponseField>
+  
+  <ResponseField name="data.arrivedPickupAt" type="string">
+    ISO 8601 timestamp when driver arrived at pickup
+  </ResponseField>
+  
+  <ResponseField name="data.startedAt" type="string">
+    ISO 8601 timestamp when trip started (passenger on board)
+  </ResponseField>
+  
+  <ResponseField name="data.completedAt" type="string">
+    ISO 8601 timestamp when trip was completed
+  </ResponseField>
+  
+  <ResponseField name="data.canceledAt" type="string">
+    ISO 8601 timestamp when trip was cancelled
+  </ResponseField>
+  
+  <ResponseField name="data.createdAt" type="string">
+    ISO 8601 timestamp of creation
+  </ResponseField>
+  
+  <ResponseField name="data.updatedAt" type="string">
+    ISO 8601 timestamp of last update
+  </ResponseField>
+</ResponseField>
+
+## Example
+
+```bash
+curl https://api.rodando.com/trips/123e4567-e89b-12d3-a456-426614174000
+```
+
+<ResponseExample>
+```json
+{
+  "success": true,
+  "message": "Trip retrieved successfully",
+  "data": {
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "passengerId": "passenger-uuid-123",
+    "passengerName": "John Doe",
+    "passengerPhone": "+1234567890",
+    "driverId": "driver-uuid-456",
+    "vehicleId": "vehicle-uuid-789",
+    "orderId": null,
+    "requestedVehicleCategoryId": "cat-uuid-auto",
+    "requestedVehicleCategoryName": "Auto",
+    "requestedServiceClassId": "class-uuid-standard",
+    "requestedServiceClassName": "Standard",
+    "currentStatus": "in_progress",
+    "paymentMode": "card",
+    "pickupPoint": {
+      "lat": 40.7580,
+      "lng": -73.9855
+    },
+    "pickupAddress": "Times Square, New York, NY",
+    "stops": [
+      {
+        "seq": 1,
+        "point": {
+          "lat": 40.7614,
+          "lng": -73.9776
+        },
+        "address": "Grand Central Terminal, New York, NY",
+        "notes": "Wait at main entrance",
+        "plannedArrivalAt": null,
+        "arrivedAt": null,
+        "completedAt": null
+      }
+    ],
+    "fareEstimatedTotal": 15.50,
+    "fareTotal": null,
+    "fareFinalCurrency": "USD",
+    "fareDistanceKm": null,
+    "fareDurationMin": null,
+    "fareSurgeMultiplier": 1.0,
+    "fareBreakdown": null,
+    "requestedAt": "2025-09-20T14:30:00Z",
+    "acceptedAt": "2025-09-20T14:32:00Z",
+    "pickupEtaAt": "2025-09-20T14:42:00Z",
+    "arrivedPickupAt": "2025-09-20T14:41:00Z",
+    "startedAt": "2025-09-20T14:45:00Z",
+    "completedAt": null,
+    "canceledAt": null,
+    "createdAt": "2025-09-20T14:30:00Z",
+    "updatedAt": "2025-09-20T14:45:00Z"
+  }
+}
+```
+</ResponseExample>
+
+## Error Responses
+
+### 400 Bad Request
+Invalid UUID format
+
+### 404 Not Found
+Trip with the specified ID does not exist
+
+## Related Endpoints
+
+- [List Trips](/api/trips/list-trips) - Get all trips with filtering
+- [Get Active Trip for Passenger](/api/trips/get-trip#passenger-active-trip) - Get passenger's current active trip
+- [Get Active Trip for Driver](/api/trips/get-trip#driver-active-trip) - Get driver's current active trip
+
+### Passenger Active Trip
+
+```bash GET /trips/passengers/{passengerId}/active-trip
+curl https://api.rodando.com/trips/passengers/passenger-uuid-123/active-trip
+```
+
+Returns the passenger's currently active trip (any trip not in `completed`, `cancelled`, or `no_drivers_found` status).
+
+### Driver Active Trip
+
+```bash GET /trips/drivers/{driverId}/active-trip
+curl https://api.rodando.com/trips/drivers/driver-uuid-456/active-trip
+```
+
+Returns the driver's currently active trip (any trip where driver is assigned and trip is not completed or cancelled).

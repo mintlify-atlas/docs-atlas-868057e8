@@ -1,0 +1,172 @@
+---
+title: Overview
+description: Real-time communication with Socket.io WebSockets
+---
+
+## Introduction
+
+Rodando Backend uses **Socket.io** for real-time bidirectional communication between clients and the server. The WebSocket infrastructure is organized into multiple namespaces, each serving a specific user type or purpose.
+
+## Architecture
+
+The WebSocket implementation follows a clean, modular architecture:
+
+- **Gateways**: Handle connection/disconnection and message subscriptions
+- **Publishers**: Emit events to clients in response to domain events
+- **Listeners**: Subscribe to domain events and trigger publishers
+- **Adapters**: Configure Socket.io server with CORS and optional Redis clustering
+
+## Namespaces
+
+The system provides four separate Socket.io namespaces:
+
+| Namespace | Path | Purpose |
+|-----------|------|----------|
+| **Driver Auth** | `/drivers` | Driver authentication and connection management |
+| **Driver Availability** | `/drivers` | Driver status, location, and trip updates |
+| **Passenger** | `/passengers` | Passenger trip status and driver updates |
+| **Admin** | `/admin` | Administrative dashboards and monitoring |
+
+<Note>
+The `/drivers` namespace handles both authentication and availability events through separate gateways.
+</Note>
+
+## Authentication
+
+All WebSocket connections require JWT authentication. Tokens can be provided in two ways:
+
+### Method 1: Auth Object (Recommended)
+
+```javascript
+const socket = io('http://localhost:3000/drivers', {
+  auth: {
+    token: 'your-jwt-access-token'
+  }
+});
+```
+
+### Method 2: Authorization Header
+
+```javascript
+const socket = io('http://localhost:3000/drivers', {
+  extraHeaders: {
+    Authorization: 'Bearer your-jwt-access-token'
+  }
+});
+```
+
+## Connection Flow
+
+1. **Client initiates connection** with JWT token
+2. **Gateway validates token** using `TokenService.verifyAccessToken()`
+3. **User and session verification**:
+   - User exists and is active
+   - User type matches namespace (DRIVER for `/drivers`, PASSENGER for `/passengers`)
+   - Session is not revoked
+   - Access token has not expired
+4. **Socket joins rooms** (e.g., `driver:{userId}`, `session:{sid}`)
+5. **Hello event** emitted to confirm successful connection
+6. **Connection rejected** if any validation fails
+
+## Rooms
+
+The system uses Socket.io rooms for targeted message delivery:
+
+```typescript
+// Room naming conventions (from ws-topics.ts)
+Rooms.passenger(passengerId) // => "passenger:{passengerId}"
+Rooms.driver(driverId)       // => "driver:{driverId}"
+Rooms.trip(tripId)           // => "trip:{tripId}"
+```
+
+Additional rooms:
+- `session:{sid}` - All sockets for a specific session (for forced disconnects)
+- `admin:all` - All admin users
+- `admin:drivers` - Admin dashboards monitoring drivers
+
+## Event Naming Conventions
+
+### Outbound (Server → Client)
+
+- `trip:*` - Trip lifecycle events
+- `driver:*` - Driver-specific events
+- `admin:*` - Admin dashboard events
+- `auth:*` - Authentication events
+
+### Inbound (Client → Server)
+
+- `driver:status:update` - Update driver online/availability status
+- `driver:location:ping` - Update driver GPS location
+- `driver:trip:set` - Associate driver with trip
+- `driver:offer:accept` - Accept trip assignment offer
+- `driver:offer:reject` - Reject trip assignment offer
+
+## Error Handling
+
+Connection errors are logged and the socket is immediately disconnected:
+
+```typescript
+try {
+  // Validation logic
+} catch (e) {
+  this.logger.warn(`WS handshake failed: ${(e as Error).message}`);
+  client.disconnect(true);
+}
+```
+
+Common errors:
+- `Missing token` - No JWT provided
+- `Missing sub/sid` - Invalid JWT payload
+- `User not found` - User ID from token doesn't exist
+- `Wrong userType` - User type doesn't match namespace
+- `User inactive` - User account is not active
+- `Invalid session` - Session not found or revoked
+- `Access expired` - Access token has expired
+
+## CORS Configuration
+
+CORS is configured in the Socket.io adapter:
+
+```typescript
+// src/realtime/adapters/socket-io.adapter.ts
+const cors = {
+  origin: process.env.WS_CORS_ORIGIN?.split(',') ?? '*',
+  credentials: true,
+};
+```
+
+Set `WS_CORS_ORIGIN` environment variable to restrict allowed origins:
+
+```bash
+WS_CORS_ORIGIN=https://app.example.com,https://admin.example.com
+```
+
+## Scaling with Redis
+
+For multi-instance deployments, enable Redis adapter (currently commented out):
+
+```typescript
+// Uncomment in socket-io.adapter.ts
+if (process.env.REDIS_URL) {
+  const pub = createClient(process.env.REDIS_URL);
+  const sub = pub.duplicate();
+  server.adapter(createAdapter(pub, sub));
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Connection Setup" icon="plug" href="/websockets/connection">
+    Learn how to establish WebSocket connections
+  </Card>
+  <Card title="Driver Auth" icon="user-shield" href="/websockets/driver-auth">
+    Driver authentication namespace events
+  </Card>
+  <Card title="Driver Availability" icon="location-dot" href="/websockets/driver-availability">
+    Driver status and location events
+  </Card>
+  <Card title="Passenger Events" icon="users" href="/websockets/passenger">
+    Passenger trip lifecycle events
+  </Card>
+</CardGroup>

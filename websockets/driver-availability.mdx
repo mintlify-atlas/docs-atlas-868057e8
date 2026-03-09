@@ -1,0 +1,654 @@
+---
+title: Driver Availability Events
+description: Real-time driver status, location, and trip management events
+---
+
+## Overview
+
+The **Driver Availability Gateway** handles real-time updates for driver status, GPS location tracking, and trip assignments on the `/drivers` namespace.
+
+## Gateway Configuration
+
+```typescript
+// From driver-availability.gateway.ts:30
+@WebSocketGateway({
+  namespace: '/drivers',
+  cors: { origin: '*', credentials: true },
+  pingTimeout: 20000,   // 20 seconds
+  pingInterval: 25000,  // 25 seconds
+})
+export class DriverAvailabilityGateway
+```
+
+## Connection
+
+```javascript
+import { io } from 'socket.io-client';
+
+const driverSocket = io('http://localhost:3000/drivers', {
+  auth: { token: accessToken }
+});
+
+driverSocket.on('connect', () => {
+  console.log('Connected to driver availability namespace');
+});
+
+driverSocket.on('hello', (data) => {
+  console.log('Hello from server:', data);
+  // { ok: true, nsp: '/drivers' }
+});
+```
+
+## Inbound Events (Client → Server)
+
+### `driver:status:update`
+
+Update driver's online status and availability for accepting trips.
+
+**Request Payload:**
+
+```typescript
+{
+  isOnline?: boolean;              // Driver is online
+  isAvailableForTrips?: boolean;   // Driver can accept trips
+}
+```
+
+**Response (ACK):**
+
+```typescript
+{
+  ok: boolean;
+  data: {
+    driverId: string;
+    isOnline: boolean;
+    isAvailableForTrips: boolean;
+    availabilityReason?: string;
+    lastLocationTimestamp?: string;
+    // ... full availability snapshot
+  }
+}
+```
+
+**Client Example:**
+
+```javascript
+// Update status
+driverSocket.emit('driver:status:update', {
+  isOnline: true,
+  isAvailableForTrips: true
+}, (response) => {
+  if (response.ok) {
+    console.log('Status updated:', response.data);
+  }
+});
+
+// Go offline
+driverSocket.emit('driver:status:update', {
+  isOnline: false
+}, (response) => {
+  console.log('Now offline:', response.data);
+});
+```
+
+**Server Implementation:**
+
+```typescript
+// From driver-availability.gateway.ts:121
+@SubscribeMessage('driver:status:update')
+async onStatus(
+  @MessageBody() body: UpdateDriverStatusDto,
+  @ConnectedSocket() client: Socket,
+) {
+  try {
+    const driverId = (client as any).data?.driverId as string;
+    if (!driverId) throw new WsException('Unauthorized');
+
+    const updated = await this.availabilityService.updateStatus(
+      driverId,
+      body,
+    );
+
+    // Broadcast to driver's sockets
+    this.server
+      .to(`driver:${driverId}`)
+      .emit('driver:availability:update', updated);
+    
+    // Notify admin dashboards
+    this.server
+      .to('admin:drivers')
+      .emit('driver:availability:update', updated);
+
+    return { ok: true, data: updated };
+  } catch (e) {
+    throw new WsException((e as Error)?.message ?? 'status update failed');
+  }
+}
+```
+
+### `driver:location:ping`
+
+Update driver's current GPS location.
+
+**Request Payload:**
+
+```typescript
+{
+  lat: number;         // Latitude
+  lng: number;         // Longitude
+  ts?: string;         // Optional ISO timestamp
+}
+```
+
+**Response (ACK):**
+
+```typescript
+{
+  ok: boolean;
+}
+```
+
+**Client Example:**
+
+```javascript
+// Send location update
+navigator.geolocation.watchPosition((position) => {
+  driverSocket.emit('driver:location:ping', {
+    lat: position.coords.latitude,
+    lng: position.coords.longitude,
+    ts: new Date().toISOString()
+  }, (response) => {
+    if (response.ok) {
+      console.log('Location updated');
+    }
+  });
+});
+
+// Or send periodically
+setInterval(() => {
+  driverSocket.emit('driver:location:ping', {
+    lat: currentLat,
+    lng: currentLng
+  });
+}, 5000); // Every 5 seconds
+```
+
+**Server Implementation:**
+
+```typescript
+// From driver-availability.gateway.ts:150
+@SubscribeMessage('driver:location:ping')
+async onLocation(
+  @MessageBody() body: UpdateDriverLocationDto,
+  @ConnectedSocket() client: Socket,
+) {
+  try {
+    const driverId = (client as any).data?.driverId as string;
+    if (!driverId) throw new WsException('Unauthorized');
+
+    const updated = await this.availabilityService.updateLocation(
+      driverId,
+      body,
+    );
+
+    // Broadcast light payload to driver
+    this.server.to(`driver:${driverId}`).emit('driver:location:update', {
+      driverId,
+      lastLocation: updated.lastLocation,
+      lastLocationTimestamp: updated.lastLocationTimestamp,
+    });
+    
+    // Notify admin dashboards
+    this.server.to('admin:drivers').emit('driver:location:update', {
+      driverId,
+      lastLocation: updated.lastLocation,
+      lastLocationTimestamp: updated.lastLocationTimestamp,
+    });
+
+    return { ok: true };
+  } catch (e) {
+    throw new WsException((e as Error)?.message ?? 'location update failed');
+  }
+}
+```
+
+### `driver:trip:set`
+
+Associate or clear a trip for the driver.
+
+**Request Payload:**
+
+```typescript
+{
+  tripId?: string | null;  // Trip ID or null to clear
+}
+```
+
+**Response (ACK):**
+
+```typescript
+{
+  ok: boolean;
+  data: {
+    driverId: string;
+    currentTripId: string | null;
+    availabilityReason?: string;
+    isAvailableForTrips: boolean;
+    // ... full availability snapshot
+  }
+}
+```
+
+**Client Example:**
+
+```javascript
+// Set current trip
+driverSocket.emit('driver:trip:set', {
+  tripId: 'trip_123'
+}, (response) => {
+  if (response.ok) {
+    console.log('Trip set:', response.data.currentTripId);
+    console.log('Available:', response.data.isAvailableForTrips);
+  }
+});
+
+// Clear trip (trip completed)
+driverSocket.emit('driver:trip:set', {
+  tripId: null
+}, (response) => {
+  console.log('Trip cleared, now available:', response.data.isAvailableForTrips);
+});
+```
+
+**Server Implementation:**
+
+```typescript
+// From driver-availability.gateway.ts:182
+@SubscribeMessage('driver:trip:set')
+async onTrip(
+  @MessageBody() body: UpdateDriverTripDto,
+  @ConnectedSocket() client: Socket,
+) {
+  try {
+    const driverId = (client as any).data?.driverId as string;
+    if (!driverId) throw new WsException('Unauthorized');
+
+    const updated = await this.availabilityService.setOrClearTrip(
+      driverId,
+      body,
+    );
+
+    this.server.to(`driver:${driverId}`).emit('driver:trip:update', {
+      driverId,
+      currentTripId: updated.currentTripId,
+      availabilityReason: updated.availabilityReason,
+      isAvailableForTrips: updated.isAvailableForTrips,
+    });
+    
+    this.server.to('admin:drivers').emit('driver:trip:update', {
+      driverId,
+      currentTripId: updated.currentTripId,
+      availabilityReason: updated.availabilityReason,
+      isAvailableForTrips: updated.isAvailableForTrips,
+    });
+
+    return { ok: true, data: updated };
+  } catch (e) {
+    throw new WsException((e as Error)?.message ?? 'trip update failed');
+  }
+}
+```
+
+## Outbound Events (Server → Driver)
+
+### `driver:availability:update`
+
+Broadcast when driver's availability status changes.
+
+**Payload:**
+
+```typescript
+{
+  driverId: string;
+  isOnline: boolean;
+  isAvailableForTrips: boolean;
+  availabilityReason?: string;
+  currentTripId?: string | null;
+  lastLocationTimestamp?: string;
+  // ... full availability snapshot
+}
+```
+
+**Client Example:**
+
+```javascript
+driverSocket.on('driver:availability:update', (data) => {
+  console.log('Availability updated:', data);
+  console.log('Online:', data.isOnline);
+  console.log('Available for trips:', data.isAvailableForTrips);
+  
+  // Update UI
+  updateStatusIndicator(data.isOnline, data.isAvailableForTrips);
+});
+```
+
+### `driver:location:update`
+
+Broadcast when driver's location is updated.
+
+**Payload:**
+
+```typescript
+{
+  driverId: string;
+  lastLocation: {
+    lat: number;
+    lng: number;
+  };
+  lastLocationTimestamp: string;  // ISO timestamp
+}
+```
+
+**Client Example:**
+
+```javascript
+driverSocket.on('driver:location:update', (data) => {
+  console.log('Location updated:', data.lastLocation);
+  console.log('At:', data.lastLocationTimestamp);
+  
+  // Update map marker
+  updateDriverMarker(data.lastLocation.lat, data.lastLocation.lng);
+});
+```
+
+### `driver:trip:update`
+
+Broadcast when driver's current trip assignment changes.
+
+**Payload:**
+
+```typescript
+{
+  driverId: string;
+  currentTripId: string | null;
+  availabilityReason?: string;
+  isAvailableForTrips: boolean;
+}
+```
+
+**Client Example:**
+
+```javascript
+driverSocket.on('driver:trip:update', (data) => {
+  console.log('Trip assignment changed');
+  console.log('Current trip:', data.currentTripId);
+  console.log('Available:', data.isAvailableForTrips);
+  console.log('Reason:', data.availabilityReason);
+  
+  if (data.currentTripId) {
+    // Show trip details
+    loadTripDetails(data.currentTripId);
+  } else {
+    // Clear trip view
+    clearCurrentTrip();
+  }
+});
+```
+
+## Complete Client Example
+
+```javascript
+import { io } from 'socket.io-client';
+
+class DriverAvailabilityClient {
+  constructor(accessToken) {
+    this.socket = io('http://localhost:3000/drivers', {
+      auth: { token: accessToken },
+      reconnection: true,
+    });
+
+    this.setupListeners();
+    this.startLocationTracking();
+  }
+
+  setupListeners() {
+    this.socket.on('connect', () => {
+      console.log('✅ Connected to driver availability');
+      this.goOnline();
+    });
+
+    this.socket.on('hello', (data) => {
+      console.log('👋 Hello:', data);
+    });
+
+    this.socket.on('driver:availability:update', (data) => {
+      console.log('📊 Availability:', data);
+      this.updateUI(data);
+    });
+
+    this.socket.on('driver:location:update', (data) => {
+      console.log('📍 Location confirmed:', data.lastLocation);
+    });
+
+    this.socket.on('driver:trip:update', (data) => {
+      console.log('🚗 Trip assignment:', data.currentTripId);
+      this.handleTripUpdate(data);
+    });
+  }
+
+  goOnline() {
+    this.socket.emit('driver:status:update', {
+      isOnline: true,
+      isAvailableForTrips: true
+    }, (response) => {
+      if (response.ok) {
+        console.log('✅ Now online and available');
+      }
+    });
+  }
+
+  goOffline() {
+    this.socket.emit('driver:status:update', {
+      isOnline: false
+    }, (response) => {
+      console.log('⏸️  Now offline');
+    });
+  }
+
+  setAvailability(available) {
+    this.socket.emit('driver:status:update', {
+      isAvailableForTrips: available
+    }, (response) => {
+      console.log(available ? '✅ Available' : '⏸️  Unavailable');
+    });
+  }
+
+  startLocationTracking() {
+    if (!navigator.geolocation) {
+      console.error('Geolocation not supported');
+      return;
+    }
+
+    this.watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        this.sendLocation(
+          position.coords.latitude,
+          position.coords.longitude
+        );
+      },
+      (error) => {
+        console.error('Location error:', error);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 5000,
+        maximumAge: 0
+      }
+    );
+  }
+
+  sendLocation(lat, lng) {
+    this.socket.emit('driver:location:ping', {
+      lat,
+      lng,
+      ts: new Date().toISOString()
+    }, (response) => {
+      if (response.ok) {
+        console.log('📍 Location sent');
+      }
+    });
+  }
+
+  setCurrentTrip(tripId) {
+    this.socket.emit('driver:trip:set', {
+      tripId
+    }, (response) => {
+      if (response.ok) {
+        console.log('🚗 Trip set:', tripId);
+      }
+    });
+  }
+
+  clearCurrentTrip() {
+    this.socket.emit('driver:trip:set', {
+      tripId: null
+    }, (response) => {
+      console.log('✅ Trip cleared');
+    });
+  }
+
+  updateUI(data) {
+    // Update UI based on availability data
+    document.getElementById('status').textContent = 
+      data.isOnline ? 'Online' : 'Offline';
+    document.getElementById('available').textContent = 
+      data.isAvailableForTrips ? 'Available' : 'Unavailable';
+  }
+
+  handleTripUpdate(data) {
+    if (data.currentTripId) {
+      // Load and display trip
+      this.loadTrip(data.currentTripId);
+    } else {
+      // Clear trip display
+      this.clearTripDisplay();
+    }
+  }
+
+  disconnect() {
+    if (this.watchId) {
+      navigator.geolocation.clearWatch(this.watchId);
+    }
+    this.goOffline();
+    this.socket.disconnect();
+  }
+}
+
+// Usage
+const client = new DriverAvailabilityClient(accessToken);
+
+// Go online/offline
+goOnlineButton.onclick = () => client.goOnline();
+goOfflineButton.onclick = () => client.goOffline();
+
+// Toggle availability
+availableToggle.onchange = (e) => client.setAvailability(e.target.checked);
+
+// Set trip
+function onTripAccepted(tripId) {
+  client.setCurrentTrip(tripId);
+}
+
+// Clear trip
+function onTripCompleted() {
+  client.clearCurrentTrip();
+}
+```
+
+## Domain Events
+
+The publisher listens to domain events and broadcasts them:
+
+### Status Updated
+
+```typescript
+// From driver-availability-realtime.publisher.ts:21
+statusUpdated(ev: StatusUpdatedEvent) {
+  const d = ev.snapshot.driverId;
+  // Emit to driver's sockets
+  this.gateway.server
+    ?.to(`driver:${d}`)
+    .emit('driver:availability:update', ev.snapshot);
+  // Notify admin dashboards
+  this.adminGateway.server?.emit(
+    'admin:driver:availability:update',
+    ev.snapshot,
+  );
+}
+```
+
+### Location Updated
+
+```typescript
+// From driver-availability-realtime.publisher.ts:33
+locationUpdated(ev: LocationUpdatedEvent) {
+  const d = ev.snapshot.driverId;
+  this.gateway.server?.to(`driver:${d}`).emit('driver:location:update', {
+    driverId: d,
+    coords: ev.snapshot.lastLocation ?? null,
+    timestamp: ev.snapshot.lastLocationTimestamp ?? ev.at,
+  });
+  this.gateway.server?.emit('admin:driver:location:update', ev.snapshot);
+}
+```
+
+### Trip Updated
+
+```typescript
+// From driver-availability-realtime.publisher.ts:43
+tripUpdated(ev: TripUpdatedEvent) {
+  const d = ev.snapshot.driverId;
+  this.gateway.server?.to(`driver:${d}`).emit('driver:trip:update', {
+    driverId: d,
+    currentTripId: ev.snapshot.currentTripId,
+  });
+  this.gateway.server?.emit('admin:driver:trip:update', ev.snapshot);
+}
+```
+
+## Best Practices
+
+### Location Updates
+
+- Send location updates every 3-5 seconds while online
+- Use high-accuracy GPS when on active trip
+- Include timestamp for clock skew handling
+- Stop sending when offline
+
+### Status Management
+
+- Set `isOnline: false` when app goes to background
+- Set `isAvailableForTrips: false` when on break
+- Update status immediately on network reconnection
+
+### Error Handling
+
+```javascript
+driverSocket.emit('driver:status:update', data, (response) => {
+  if (!response || !response.ok) {
+    console.error('Failed to update status');
+    // Retry or show error to user
+  }
+});
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Passenger Events" icon="users" href="/websockets/passenger">
+    Trip lifecycle events for passengers
+  </Card>
+  <Card title="Admin Events" icon="gauge-high" href="/websockets/admin">
+    Administrative monitoring events
+  </Card>
+</CardGroup>
